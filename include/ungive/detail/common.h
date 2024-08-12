@@ -3,6 +3,7 @@
 #include <fstream>
 #include <functional>
 #include <ios>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
@@ -50,9 +51,74 @@ public:
     {
     }
 
+    template <typename Iterator>
+    version_number(Iterator begin, Iterator end) : m_components{ begin, end }
+    {
+    }
+
+    template <typename... Args>
+    version_number(Args... args) : version_number({ args... })
+    {
+    }
+
+    static version_number from_string(
+        std::string const& version, std::string const& prefix = "")
+    {
+        auto p = version.find(prefix, 0);
+        if (p == std::string::npos) {
+            throw std::runtime_error("prefix not found");
+        }
+        auto i = prefix.size();
+        size_t k = 0;
+        std::vector<int> components;
+        while (true) {
+            k = version.find('.', i);
+            int n = 0;
+            size_t end = std::min(version.size(), k);
+            for (size_t j = i; j < end; j++) {
+                char c = version.at(j);
+                if (c < '0' || c > '9') {
+                    throw std::runtime_error(
+                        "version string contains non-digits");
+                }
+                n *= 10;
+                n += c - '0';
+            }
+            components.push_back(n);
+            if (k == std::string::npos) {
+                break;
+            }
+            i = k + 1;
+        }
+        return version_number(components.begin(), components.end());
+    }
+
+    std::string string(std::string const& separator = ".") const
+    {
+        std::ostringstream oss;
+        bool dot = false;
+        for (auto component : m_components) {
+            if (dot)
+                oss << separator;
+            oss << component;
+            dot = true;
+        }
+        return oss.str();
+    }
+
     inline size_t size() const { return m_components.size(); }
 
     inline int at(size_t i) const { return m_components.at(i); }
+
+    inline std::vector<int>::const_iterator begin() const
+    {
+        return m_components.cbegin();
+    }
+
+    inline std::vector<int>::const_iterator end() const
+    {
+        return m_components.cend();
+    }
 
     friend bool operator==(version_number const& lhs, version_number const& rhs)
     {

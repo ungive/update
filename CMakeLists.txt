@@ -37,6 +37,10 @@ if(WIN32)
     target_link_libraries(ungive_update INTERFACE MINIZIP::minizip)
 endif()
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(ungive_update INTERFACE TEST_BUILD)
+endif()
+
 if(UNGIVE_UPDATE_BUILD_TESTS)
     # Prevent overriding the parent project's compiler/linker settings (win)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
@@ -47,6 +51,7 @@ if(UNGIVE_UPDATE_BUILD_TESTS)
                      test/integration_test.cpp test/util_test.cpp)
 
     add_executable(ungive_update_test ${TEST_SOURCES})
+    target_compile_definitions(ungive_update_test PRIVATE TEST_BUILD)
     target_link_libraries(ungive_update_test ungive_update)
     target_link_libraries(ungive_update_test GTest::gmock_main)
     target_include_directories(

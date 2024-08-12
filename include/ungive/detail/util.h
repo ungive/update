@@ -39,6 +39,15 @@ inline std::filesystem::path create_temporary_directory(
     return path;
 }
 
+// Creates a file with a specific name.
+inline void touch_file(std::filesystem::path path)
+{
+    if (path.has_parent_path())
+        std::filesystem::create_directories(path.parent_path());
+    std::ofstream f(path);
+    f.close();
+}
+
 // Generates a random, alphanumeric string.
 inline std::string random_string(std::size_t length)
 {

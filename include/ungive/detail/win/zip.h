@@ -46,24 +46,24 @@ inline void zip_extract(
 // by copying all files from that subdirectory into the directory
 // and deleting the then empty subdirectory.
 // Useful for flattening a ZIP archive that contains a single folder.
-inline void flatten_root_directory(std::string const& directory)
+inline bool flatten_root_directory(std::string const& directory)
 {
     namespace fs = std::filesystem;
     std::optional<fs::path> subdir;
     for (auto const& entry : fs::directory_iterator(directory)) {
         if (subdir.has_value()) {
-            throw std::runtime_error("root contains more than one file");
+            return false;
         }
         if (!entry.is_directory()) {
-            throw std::runtime_error("root contains non-directory files");
+            return false;
         }
         subdir = entry.path();
     }
     if (!subdir.has_value()) {
-        throw std::runtime_error("root does not contain any files");
+        return false;
     }
     if (!subdir->has_parent_path()) {
-        throw std::runtime_error("subdirectory should have a parent");
+        return false;
     }
     auto temp_name = internal::random_string(24);
     fs::path new_dir = subdir->parent_path() / temp_name;
@@ -77,6 +77,7 @@ inline void flatten_root_directory(std::string const& directory)
     }
     auto count = fs::remove_all(new_dir);
     assert(count == 1);
+    return true;
 }
 
 } // namespace ungive::update::util
