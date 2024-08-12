@@ -21,7 +21,7 @@ AlignAfterOpenBracket: DontAlign
 Cpp11BracedListStyle: false
 IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex: "<[^Q][[:alnum:]_.]+>"
+  - Regex: "<[^Q][[:alnum:]_]+>"
     Priority: 1
   - Regex: "<Q.+>"
     Priority: 2
