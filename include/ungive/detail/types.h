@@ -43,8 +43,8 @@ public:
     // Retrieves the URL for the latest update.
     // The update's version must be greater than the current version
     // and the filename must match the given pattern.
-    virtual file_url operator()(
-        version_number const& current_version, std::regex filename_pattern) = 0;
+    virtual std::pair<version_number, file_url> operator()(
+        std::regex filename_pattern) = 0;
 };
 
 class base_verifier : public types::verifier_interface

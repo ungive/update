@@ -198,7 +198,7 @@ public:
     {
     }
 
-    file_url operator()(version_number const& current_version,
+    std::pair<version_number, file_url> operator()(
         std::regex filename_pattern) override
     {
         http_downloader api_downloader("https://api.github.com/repos/" +
@@ -210,7 +210,7 @@ public:
         if (result.second.url().rfind("https://github.com", 0) == npos) {
             throw std::runtime_error("the release url ist not a github url");
         }
-        return result.second;
+        return result;
     }
 
 private:
