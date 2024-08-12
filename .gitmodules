@@ -1,0 +1,14 @@
+[submodule "third_party/nlohmann+json"]
+	path = third_party/nlohmann+json
+	url = https://github.com/nlohmann/json
+	tag = v3.11.3
+	ignore = dirty
+[submodule "third_party/google+googletest"]
+	path = third_party/google+googletest
+	url = https://github.com/google/googletest
+	branch = v1.14.x
+[submodule "third_party/yhirose+cpp-httplib"]
+	path = third_party/yhirose+cpp-httplib/include/yhirose
+	url = https://github.com/yhirose/cpp-httplib
+	tag = v0.16.1
+	ignore = dirty
