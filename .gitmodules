@@ -12,3 +12,7 @@
 	url = https://github.com/yhirose/cpp-httplib
 	tag = v0.16.1
 	ignore = dirty
+[submodule "third_party/zlib-ng+minizip-ng"]
+	path = third_party/zlib-ng+minizip-ng
+	url = https://github.com/zlib-ng/minizip-ng
+	branch = master

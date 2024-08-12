@@ -17,6 +17,8 @@ class downloaded_file
 public:
     downloaded_file(std::string path) : m_path{ path } {}
 
+    downloaded_file(std::filesystem::path path) : m_path{ path.string() } {}
+
     // The path of the file.
     std::string const& path() const { return m_path; }
 
@@ -36,7 +38,6 @@ public:
     }
 
 private:
-    std::string m_filename;
     std::string m_path;
 };
 

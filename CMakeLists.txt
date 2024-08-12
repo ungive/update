@@ -22,14 +22,29 @@ target_link_libraries(ungive_update INTERFACE OpenSSL::SSL OpenSSL::Crypto)
 set_property(TARGET ungive_update PROPERTY CXX_STANDARD 17)
 set_property(TARGET ungive_update PROPERTY CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# minizip on windows for extracting release files
+if(WIN32)
+    set(MZ_DECOMPRESS_ONLY ON CACHE BOOL "" FORCE)
+    set(MZ_COMPAT OFF CACHE BOOL "" FORCE)
+    set(MZ_BZIP2 OFF CACHE BOOL "" FORCE)
+    set(MZ_LZMA OFF CACHE BOOL "" FORCE)
+    set(MZ_ZSTD OFF CACHE BOOL "" FORCE)
+    set(MZ_FETCH_LIBS OFF CACHE BOOL "" FORCE)
+    set(MZ_LIBCOMP OFF CACHE BOOL "" FORCE)
+    set(MZ_PKCRYPT OFF CACHE BOOL "" FORCE)
+    set(MZ_WZAES OFF CACHE BOOL "" FORCE)
+    add_subdirectory(third_party/zlib-ng+minizip-ng)
+    target_link_libraries(ungive_update INTERFACE MINIZIP::minizip)
+endif()
+
 if(UNGIVE_UPDATE_BUILD_TESTS)
     # Prevent overriding the parent project's compiler/linker settings (win)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     add_subdirectory(third_party/google+googletest EXCLUDE_FROM_ALL)
     include(GoogleTest)
     enable_testing()
-    set(TEST_SOURCES test/http_downloader_test.cpp test/version_number_test.cpp
-                     test/integration_test.cpp)
+    set(TEST_SOURCES test/update_test.cpp test/version_number_test.cpp
+                     test/integration_test.cpp test/util_test.cpp)
 
     add_executable(ungive_update_test ${TEST_SOURCES})
     target_link_libraries(ungive_update_test ungive_update)

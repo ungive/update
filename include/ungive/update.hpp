@@ -18,6 +18,10 @@
 #include "detail/util.h"
 #include "detail/verifiers.h"
 
+#ifdef WIN32
+#include "detail/win/zip.h"
+#endif
+
 namespace ungive::update
 {
 
