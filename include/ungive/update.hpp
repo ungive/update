@@ -109,10 +109,7 @@ protected:
         std::filesystem::path const& output_file)
     {
         if (output_file.has_parent_path()) {
-            if (!std::filesystem::create_directories(
-                    output_file.parent_path())) {
-                std::runtime_error("failed to create output directory");
-            }
+            std::filesystem::create_directories(output_file.parent_path());
         }
         std::ofstream out(output_file, std::ios::out | std::ios::binary);
         if (path.size() > 0 && path.at(0) != '/') {
@@ -164,17 +161,7 @@ struct github_api_latest_extractor : public types::latest_extractor_interface
         const auto npos = std::string::npos;
         auto j = nlohmann::json::parse(file.read());
         std::string tag = j["tag_name"];
-        auto v = tag.find('v', 0);
-        auto a = tag.find('.', 1);
-        auto b = a != npos ? tag.find('.', a + 1) : npos;
-        if (v != 0 || a == npos || b == npos) {
-            throw std::runtime_error("unexpected version tag format");
-        }
-        version_number version = {
-            std::stoi(tag.substr(v + 1, a - (v + 1))),
-            std::stoi(tag.substr(a + 1, b - (a + 1))),
-            std::stoi(tag.substr(b + 1)),
-        };
+        auto version = version_number::from_semver(tag, "v");
         std::string url{};
         for (auto const& asset : j["assets"]) {
             std::string name = asset["name"];

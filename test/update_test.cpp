@@ -33,9 +33,7 @@ struct downloader_inject : public http_downloader
         auto full_path = cwd() / internal::random_string(8) /
             internal::strip_leading_slash(path);
         if (full_path.has_parent_path()) {
-            if (!std::filesystem::create_directories(full_path.parent_path())) {
-                std::runtime_error("failed to create output directory");
-            }
+            std::filesystem::create_directories(full_path.parent_path());
         }
         std::ofstream out(full_path, std::ios::out | std::ios::binary);
         out.write(content.data(), content.size());
