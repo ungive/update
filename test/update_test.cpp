@@ -191,6 +191,39 @@ TEST(latest_extractor, YieldsLatestVersionWhenRequestingMockGitHubApi)
     EXPECT_EQ("release-1.2.3.txt", result.second.filename());
 }
 
+TEST(latest_retriever, YieldsLatestVersionWhenUsingOldGitHubUsername)
+{
+    // This leads to a redirect with the GitHub API, make sure that works!
+    // A user should be able to rename their GitHub account
+    // and still be able to ship new updates to old versions of the application
+    // which still have the older username hardcoded.
+    const auto old_username = "jonasberge";
+    const auto current_username = "ungive";
+    github_api_latest_retriever latest(old_username, "discord-music-presence");
+    auto latest_release = latest(std::regex("^.*$"));
+    EXPECT_EQ(3, latest_release.first.size());
+    EXPECT_NE(
+        std::string::npos, latest_release.second.url().find(current_username));
+}
+
+TEST(latest_retriever, YieldsLatestVersionWhenUsingOldRepositoryName)
+{
+    // This leads to a redirect with the GitHub API, make sure that works!
+    // A user should be able to rename their GitHub repository
+    // and still be able to ship new updates to old versions of the application
+    // which still have the older repository name hardcoded.
+    const auto old_username = "jonasberge";
+    const auto old_repository_name = "TIDAL-Discord-Rich-Presence-UNOFFICIAL";
+    const auto current_username = "ungive";
+    const auto current_repository_name = "discord-music-presence";
+    github_api_latest_retriever latest(old_username, old_repository_name);
+    auto latest_release = latest(std::regex("^.*$"));
+    EXPECT_EQ(3, latest_release.first.size());
+    EXPECT_NE(std::string::npos,
+        latest_release.second.url().find(
+            std::string(current_username) + "/" + current_repository_name));
+}
+
 class mock_github_api_latest_retriever : public github_api_latest_retriever
 {
 public:
