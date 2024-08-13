@@ -171,6 +171,7 @@ private:
     std::vector<int> m_components;
 };
 
+// Represents the URL to a file on an HTTP server.
 class file_url
 {
 public:

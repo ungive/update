@@ -19,7 +19,8 @@
 #include "detail/verifiers.h"
 
 #ifdef WIN32
-#include "detail/win/zip.h"
+#include "detail/win/startmenu.h"
+#include "detail/zip.h"
 #endif
 
 namespace ungive::update
@@ -62,8 +63,8 @@ public:
 
     // Adds a verification step for each download that is made with get().
     template <typename V,
-        typename std::enable_if<std::is_base_of<types::verifier_interface,
-            V>::value>::type* = nullptr>
+        typename std::enable_if<std::is_base_of<
+            internal::types::verifier_interface, V>::value>::type* = nullptr>
     void add_verification(V const& verifier)
     {
         m_verification_funcs.push_back(verifier);
@@ -158,11 +159,12 @@ protected:
 
     std::filesystem::path m_temp_dir{};
     std::unordered_set<std::string> m_additional_files{};
-    std::vector<types::verifier_func> m_verification_funcs{};
+    std::vector<internal::types::verifier_func> m_verification_funcs{};
     std::unordered_map<std::string, downloaded_file> m_downloaded_files{};
 };
 
-struct github_api_latest_extractor : public types::latest_extractor_interface
+struct github_api_latest_extractor
+    : public internal::types::latest_extractor_interface
 {
     github_api_latest_extractor(std::regex release_filename_pattern)
         : m_release_filename_pattern{ release_filename_pattern }
@@ -194,7 +196,8 @@ private:
     std::regex m_release_filename_pattern;
 };
 
-class github_api_latest_retriever : public types::latest_retriever_interface
+class github_api_latest_retriever
+    : public internal::types::latest_retriever_interface
 {
 public:
     github_api_latest_retriever(
@@ -206,11 +209,12 @@ public:
     std::pair<version_number, file_url> operator()(
         std::regex filename_pattern) const override
     {
+        const auto url = "https://api.github.com/repos/" + m_username + "/" +
+            m_repository + "/releases/latest";
 #ifdef TEST_BUILD
-        http_downloader api_downloader(m_injected_api_url);
+        http_downloader api_downloader(m_injected_api_url.value_or(url));
 #else
-        http_downloader api_downloader("https://api.github.com/repos/" +
-            m_username + "/" + m_repository + "/releases/latest");
+        http_downloader api_downloader(url);
 #endif
         auto release_info = api_downloader.get();
         github_api_latest_extractor extractor(filename_pattern);
@@ -235,7 +239,7 @@ protected:
         m_injected_api_url = url;
     }
 
-    std::string m_injected_api_url;
+    std::optional<std::string> m_injected_api_url;
 #endif
 
 private:
@@ -301,7 +305,8 @@ public:
     // Set a source from which the latest version is retrieved.
     template <typename L,
         typename std::enable_if<std::is_base_of<
-            types::latest_retriever_interface, L>::value>::type* = nullptr>
+            internal::types::latest_retriever_interface, L>::value>::type* =
+            nullptr>
     inline void set_source(L const& latest_retriever)
     {
         m_latest_retriever_func = latest_retriever;
@@ -330,8 +335,8 @@ public:
 
     // Add any number of verification steps for downloaded update files.
     template <typename V,
-        typename std::enable_if<std::is_base_of<types::verifier_interface,
-            V>::value>::type* = nullptr>
+        typename std::enable_if<std::is_base_of<
+            internal::types::verifier_interface, V>::value>::type* = nullptr>
     inline void add_verification(V const& verifier)
     {
         m_downloader.add_verification(verifier);
@@ -444,18 +449,20 @@ private:
         }
         std::filesystem::create_directories(output_directory);
         switch (m_archive_type) {
+#ifdef WIN32
         case archive_type::zip_archive:
-            util::zip_extract(archive_path, output_directory.string());
-            util::flatten_root_directory(output_directory.string());
-            create_ready_file(output_directory);
+            internal::zip_extract(archive_path, output_directory.string());
+            internal::flatten_root_directory(output_directory.string());
+            create_sentinel_file(output_directory);
             break;
+#endif
         default:
             throw std::runtime_error("archive type not supported yet");
         }
         return output_directory;
     }
 
-    inline void create_ready_file(std::filesystem::path directory) const
+    inline void create_sentinel_file(std::filesystem::path directory) const
     {
         internal::touch_file(directory / SENTINEL_FILENAME);
     }
@@ -467,7 +474,7 @@ private:
     archive_type m_archive_type{ archive_type::unknown };
     std::string m_download_filename_pattern{};
     std::optional<std::regex> m_download_url_pattern{};
-    types::latest_retriever_func m_latest_retriever_func{};
+    internal::types::latest_retriever_func m_latest_retriever_func{};
     http_downloader m_downloader{};
 };
 

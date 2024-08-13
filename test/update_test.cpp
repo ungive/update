@@ -202,11 +202,15 @@ public:
     }
 };
 
-update_manager create_update_manager()
+static auto PATTERN_ZIP = "^release-\\d+.\\d+.\\d+.zip$";
+static auto PATTERN_ZIP_SUBFOLDER = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
+
+update_manager create_update_manager(
+    std::string const& release_filename_pattern)
 {
     update_manager manager(UPDATE_WORKING_DIR);
     manager.set_source(mock_github_api_latest_retriever());
-    manager.download_filename_pattern("^release-\\d+.\\d+.\\d+-subfolder.zip$");
+    manager.download_filename_pattern(release_filename_pattern);
     manager.set_archive_type(archive_type::zip_archive);
     manager.add_verification(verifiers::sha256sums("SHA256SUMS.txt"));
     manager.add_verification(verifiers::message_digest(
@@ -217,7 +221,7 @@ update_manager create_update_manager()
 TEST(update_manager, StatusIsUpToDateWhenVersionIsIdentical)
 {
     auto current_version = version_number(1, 2, 3);
-    update_manager manager = create_update_manager();
+    update_manager manager = create_update_manager(PATTERN_ZIP_SUBFOLDER);
     auto result = manager.update(current_version);
     EXPECT_EQ(update_status::up_to_date, result.status);
 }
@@ -225,7 +229,7 @@ TEST(update_manager, StatusIsUpToDateWhenVersionIsIdentical)
 TEST(update_manager, StatusIsLatestIsOlderWhenVersionIsLower)
 {
     auto current_version = version_number(1, 3, 0);
-    update_manager manager = create_update_manager();
+    update_manager manager = create_update_manager(PATTERN_ZIP_SUBFOLDER);
     auto result = manager.update(current_version);
     EXPECT_EQ(update_status::latest_is_older, result.status);
 }
@@ -233,7 +237,7 @@ TEST(update_manager, StatusIsLatestIsOlderWhenVersionIsLower)
 TEST(update_manager, UpdateIsInstalledAndReadyWhenVersionIsOlder)
 {
     auto current_version = version_number(1, 2, 2);
-    update_manager manager = create_update_manager();
+    update_manager manager = create_update_manager(PATTERN_ZIP_SUBFOLDER);
     std::filesystem::remove_all(manager.working_directory());
     EXPECT_EQ(std::nullopt, manager.latest_installed_version());
     auto result = manager.update(current_version);
@@ -242,6 +246,30 @@ TEST(update_manager, UpdateIsInstalledAndReadyWhenVersionIsOlder)
     EXPECT_EQ(manager.working_directory() / result.version.string(),
         result.downloaded_directory);
     EXPECT_TRUE(std::filesystem::exists(result.downloaded_directory.value()));
+    EXPECT_TRUE(std::filesystem::exists(
+        result.downloaded_directory.value() / "release-1.2.3.txt"));
+    auto latest_installed = manager.latest_installed_version();
+    ASSERT_TRUE(latest_installed.has_value());
+    EXPECT_EQ(version_number(1, 2, 3), result.version);
+    EXPECT_EQ(result.version, latest_installed->first);
+    EXPECT_EQ(result.downloaded_directory, latest_installed->second);
+}
+
+TEST(update_manager, UpdateIsInstalledWhenZipHasNoSubfolderToFlatten)
+{
+    auto current_version = version_number(1, 2, 2);
+    // This line is different:
+    update_manager manager = create_update_manager(PATTERN_ZIP);
+    std::filesystem::remove_all(manager.working_directory());
+    EXPECT_EQ(std::nullopt, manager.latest_installed_version());
+    auto result = manager.update(current_version);
+    EXPECT_EQ(update_status::update_downloaded, result.status);
+    ASSERT_TRUE(result.downloaded_directory.has_value());
+    EXPECT_EQ(manager.working_directory() / result.version.string(),
+        result.downloaded_directory);
+    EXPECT_TRUE(std::filesystem::exists(result.downloaded_directory.value()));
+    EXPECT_TRUE(std::filesystem::exists(
+        result.downloaded_directory.value() / "release-1.2.3.txt"));
     auto latest_installed = manager.latest_installed_version();
     ASSERT_TRUE(latest_installed.has_value());
     EXPECT_EQ(version_number(1, 2, 3), result.version);
@@ -253,7 +281,7 @@ TEST(update_manager, OldVersionIsDeletedAfterPruneIsCalled)
 {
     auto current_version = version_number(1, 2, 2);
     auto expected_version = version_number(1, 2, 3);
-    update_manager manager = create_update_manager();
+    update_manager manager = create_update_manager(PATTERN_ZIP_SUBFOLDER);
     std::filesystem::remove_all(manager.working_directory());
     std::filesystem::create_directories(manager.working_directory());
     // Pretend there is an older version available.

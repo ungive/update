@@ -7,7 +7,7 @@
 
 #include "ungive/detail/common.h"
 
-namespace ungive::update::types
+namespace ungive::update::internal::types
 {
 
 using verifier_func = std::function<bool(std::string const& path,
@@ -75,4 +75,4 @@ protected:
     std::vector<std::string> m_files;
 };
 
-} // namespace ungive::update::types
+} // namespace ungive::update::internal::types

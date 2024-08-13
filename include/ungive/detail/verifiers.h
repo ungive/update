@@ -14,7 +14,7 @@ public:
     using runtime_error::runtime_error;
 };
 
-class message_digest : public types::base_verifier
+class message_digest : public internal::types::base_verifier
 
 {
 public:
@@ -44,9 +44,9 @@ public:
     {
         bool has_valid = false;
         for (auto const& encoded_public_key : m_encoded_public_keys) {
-            auto key = crypto::parse_public_key(
+            auto key = internal::crypto::parse_public_key(
                 encoded_public_key, m_key_format, m_key_type);
-            auto valid_signature = crypto::verify_signature(key.get(),
+            auto valid_signature = internal::crypto::verify_signature(key.get(),
                 files.at(m_digest_filename).read(std::ios::binary),
                 files.at(m_message_filename).read(std::ios::binary));
             if (valid_signature) {
@@ -69,7 +69,7 @@ private:
 };
 
 // Verifier for "SHA256SUMS" type of files.
-class sha256sums : public types::base_verifier
+class sha256sums : public internal::types::base_verifier
 {
 public:
     sha256sums(std::string const& shasums_filename)
@@ -118,7 +118,7 @@ private:
     inline bool verify_hash(
         std::string const& hash, downloaded_file const& file) const
     {
-        return hash == crypto::sha256_file(file.path());
+        return hash == internal::crypto::sha256_file(file.path());
     }
 
     std::vector<std::pair<std::string, std::string>> parse_sha256sums(

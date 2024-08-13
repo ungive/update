@@ -28,34 +28,31 @@ inline std::string read(fs::path const& path)
     return downloaded_file(path).read();
 }
 
-// Windows tests
-#ifdef WIN32
 static auto ZIP_SUBFOLDER = "release-1.2.3";
 static auto ZIP_FILENAME = "release-1.2.3.txt";
 static auto ZIP_CONTENT = "Release file for version 1.2.3";
 
-TEST(util, FileExistsWhenExtractingZip)
+TEST(zip, FileExistsWhenExtractingZip)
 {
     temp_dir dir;
     auto zip = TEST_FILES / "release-1.2.3.zip";
-    EXPECT_NO_THROW(util::zip_extract(zip.string(), dir.string()));
+    EXPECT_NO_THROW(internal::zip_extract(zip.string(), dir.string()));
     EXPECT_EQ(ZIP_CONTENT, read(dir.path() / ZIP_FILENAME));
 }
 
-TEST(util, FileExistsWhenExtractingZipWithSubfolder)
+TEST(zip, FileExistsWhenExtractingZipWithSubfolder)
 {
     temp_dir dir;
     auto zip = TEST_FILES / "release-1.2.3-subfolder.zip";
-    EXPECT_NO_THROW(util::zip_extract(zip.string(), dir.string()));
+    EXPECT_NO_THROW(internal::zip_extract(zip.string(), dir.string()));
     EXPECT_EQ(ZIP_CONTENT, read(dir.path() / ZIP_SUBFOLDER / ZIP_FILENAME));
 }
 
-TEST(util, FileIsMovedWhenExtractingZipAndFlatteningRootDirectory)
+TEST(zip, FileIsMovedWhenExtractingZipAndFlatteningRootDirectory)
 {
     temp_dir dir;
     auto zip = TEST_FILES / "release-1.2.3-subfolder.zip";
-    EXPECT_NO_THROW(util::zip_extract(zip.string(), dir.string()));
-    EXPECT_NO_THROW(util::flatten_root_directory(dir.string()));
+    EXPECT_NO_THROW(internal::zip_extract(zip.string(), dir.string()));
+    EXPECT_NO_THROW(internal::flatten_root_directory(dir.string()));
     EXPECT_EQ(ZIP_CONTENT, read(dir.path() / ZIP_FILENAME));
 }
-#endif // WIN32

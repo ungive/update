@@ -47,8 +47,11 @@ if(UNGIVE_UPDATE_BUILD_TESTS)
     add_subdirectory(third_party/google+googletest EXCLUDE_FROM_ALL)
     include(GoogleTest)
     enable_testing()
-    set(TEST_SOURCES test/update_test.cpp test/version_number_test.cpp
-                     test/integration_test.cpp test/util_test.cpp)
+    set(TEST_SOURCES test/update_test.cpp test/common_test.cpp
+                     test/integration_test.cpp)
+    if(WIN32)
+        list(APPEND TEST_SOURCES test/win_test.cpp)
+    endif()
 
     add_executable(ungive_update_test ${TEST_SOURCES})
     target_compile_definitions(ungive_update_test PRIVATE TEST_BUILD)
