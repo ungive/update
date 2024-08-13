@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -73,6 +74,19 @@ public:
 
 protected:
     std::vector<std::string> m_files;
+};
+
+using post_update_operation_func =
+    std::function<void(std::filesystem::path const&)>;
+
+class post_update_operation_interface
+{
+public:
+    // Performs a post-update operation.
+    // The parameter is the directory to which the downloaded update
+    // has been extracted.
+    virtual void operator()(
+        std::filesystem::path const& extracted_directory) = 0;
 };
 
 } // namespace ungive::update::internal::types
