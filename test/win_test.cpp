@@ -56,3 +56,17 @@ TEST(zip, FileIsMovedWhenExtractingZipAndFlatteningRootDirectory)
     EXPECT_NO_THROW(internal::flatten_root_directory(dir.string()));
     EXPECT_EQ(ZIP_CONTENT, read(dir.path() / ZIP_FILENAME));
 }
+
+TEST(startmenu, StartMenuEntryExistsAfterCallingCreateStartMenuEntry)
+{
+    auto expected_directory =
+        internal::win::programs_path("ungive_update_test");
+    ASSERT_TRUE(expected_directory.has_value());
+    auto result = internal::win::create_start_menu_entry(
+        "C:\\Program Files\\Mozilla Firefox\\firefox.exe", "Firefox",
+        "ungive_update_test");
+    ASSERT_TRUE(result);
+    auto expected_file = expected_directory.value() / "Firefox.lnk";
+    ASSERT_TRUE(std::filesystem::exists(expected_file));
+    std::filesystem::remove_all(expected_directory.value());
+}
