@@ -15,7 +15,7 @@ using namespace ungive::update;
 
 #ifdef WIN32
 const char* UPDATE_WORKING_DIR =
-    "C:\\Users\\Jonas\\AppData\\Local\\update_test_dir";
+    "C:\\Users\\Jonas\\AppData\\Local\\ungive_update_test_dir";
 #endif
 
 const char* PUBLIC_KEY = R"key(
@@ -234,47 +234,85 @@ TEST(update_manager, StatusIsLatestIsOlderWhenVersionIsLower)
     EXPECT_EQ(update_status::latest_is_older, result.status);
 }
 
-TEST(update_manager, UpdateIsInstalledAndReadyWhenVersionIsOlder)
+void update_manager_update_test(update_manager& manager,
+    std::filesystem::path const& expected_extracted_file,
+    bool should_throw = false)
 {
     auto current_version = version_number(1, 2, 2);
-    update_manager manager = create_update_manager(PATTERN_ZIP_SUBFOLDER);
     std::filesystem::remove_all(manager.working_directory());
+    std::optional<update_result> result;
     EXPECT_EQ(std::nullopt, manager.latest_installed_version());
-    auto result = manager.update(current_version);
-    EXPECT_EQ(update_status::update_downloaded, result.status);
-    ASSERT_TRUE(result.downloaded_directory.has_value());
-    EXPECT_EQ(manager.working_directory() / result.version.string(),
-        result.downloaded_directory);
-    EXPECT_TRUE(std::filesystem::exists(result.downloaded_directory.value()));
+    if (should_throw) {
+        EXPECT_ANY_THROW(result = manager.update(current_version));
+        std::filesystem::remove_all(manager.working_directory());
+        return;
+    } else {
+        EXPECT_NO_THROW(result = manager.update(current_version));
+    }
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(update_status::update_downloaded, result->status);
+    ASSERT_TRUE(result->downloaded_directory.has_value());
+    EXPECT_EQ(manager.working_directory() / result->version.string(),
+        result->downloaded_directory);
+    EXPECT_TRUE(std::filesystem::exists(result->downloaded_directory.value()));
     EXPECT_TRUE(std::filesystem::exists(
-        result.downloaded_directory.value() / "release-1.2.3.txt"));
+        result->downloaded_directory.value() / expected_extracted_file));
     auto latest_installed = manager.latest_installed_version();
     ASSERT_TRUE(latest_installed.has_value());
-    EXPECT_EQ(version_number(1, 2, 3), result.version);
-    EXPECT_EQ(result.version, latest_installed->first);
-    EXPECT_EQ(result.downloaded_directory, latest_installed->second);
+    EXPECT_EQ(version_number(1, 2, 3), result->version);
+    EXPECT_EQ(result->version, latest_installed->first);
+    EXPECT_EQ(result->downloaded_directory, latest_installed->second);
+    std::filesystem::remove_all(manager.working_directory());
+}
+
+TEST(update_manager, UpdateIsInstalledWhenZipHasSubfolder)
+{
+    update_manager manager = create_update_manager(PATTERN_ZIP_SUBFOLDER);
+    update_manager_update_test(manager, "release-1.2.3/release-1.2.3.txt");
+}
+
+TEST(update_manager, UpdateIsInstalledWhenZipHasSubfolderAndIsFlattened)
+{
+    update_manager manager = create_update_manager(PATTERN_ZIP_SUBFOLDER);
+    manager.add_post_update_operation(
+        operations::flatten_extracted_directory());
+    update_manager_update_test(manager, "release-1.2.3.txt");
 }
 
 TEST(update_manager, UpdateIsInstalledWhenZipHasNoSubfolderToFlatten)
 {
-    auto current_version = version_number(1, 2, 2);
-    // This line is different:
     update_manager manager = create_update_manager(PATTERN_ZIP);
-    std::filesystem::remove_all(manager.working_directory());
-    EXPECT_EQ(std::nullopt, manager.latest_installed_version());
-    auto result = manager.update(current_version);
-    EXPECT_EQ(update_status::update_downloaded, result.status);
-    ASSERT_TRUE(result.downloaded_directory.has_value());
-    EXPECT_EQ(manager.working_directory() / result.version.string(),
-        result.downloaded_directory);
-    EXPECT_TRUE(std::filesystem::exists(result.downloaded_directory.value()));
-    EXPECT_TRUE(std::filesystem::exists(
-        result.downloaded_directory.value() / "release-1.2.3.txt"));
-    auto latest_installed = manager.latest_installed_version();
-    ASSERT_TRUE(latest_installed.has_value());
-    EXPECT_EQ(version_number(1, 2, 3), result.version);
-    EXPECT_EQ(result.version, latest_installed->first);
-    EXPECT_EQ(result.downloaded_directory, latest_installed->second);
+    update_manager_update_test(manager, "release-1.2.3.txt");
+}
+
+TEST(update_manager, UpdateFailsWhenZipHasNoSubfolderButIsFlattened)
+{
+    update_manager manager = create_update_manager(PATTERN_ZIP);
+    manager.add_post_update_operation(
+        operations::flatten_extracted_directory());
+    update_manager_update_test(manager, "release-1.2.3.txt", true);
+}
+
+TEST(update_manager, UpdateSucceedsWhenZipHasNoSubfolderButIsFlattenedSilently)
+{
+    update_manager manager = create_update_manager(PATTERN_ZIP);
+    manager.add_post_update_operation(
+        operations::flatten_extracted_directory(false));
+    update_manager_update_test(manager, "release-1.2.3.txt", false);
+}
+
+TEST(update_manager, StartMenuShortcutExistsAfterAddingRespectiveOperation)
+{
+    auto directory = internal::win::programs_path("ungive_update_test");
+    ASSERT_TRUE(directory.has_value());
+    update_manager manager = create_update_manager(PATTERN_ZIP);
+    manager.add_post_update_operation(operations::install_start_menu_shortcut(
+        "release-1.2.3.txt", "Release 1.2.3", "ungive_update_test"));
+    update_manager_update_test(manager, "release-1.2.3.txt", false);
+    EXPECT_TRUE(std::filesystem::exists(directory.value()));
+    EXPECT_TRUE(
+        std::filesystem::exists(directory.value() / "Release 1.2.3.lnk"));
+    // std::filesystem::remove_all(directory.value());
 }
 
 TEST(update_manager, OldVersionIsDeletedAfterPruneIsCalled)

@@ -102,4 +102,14 @@ inline std::string strip_leading_slash(std::string const& path)
     return path.substr(i);
 }
 
+// Tests whether a string ends with another string.
+inline bool string_ends_with(std::string const& text, std::string const& suffix)
+{
+    if (suffix.length() > text.length()) {
+        return false;
+    }
+    auto offset = text.length() - suffix.length();
+    return text.compare(offset, suffix.length(), suffix) == 0;
+}
+
 } // namespace ungive::update::internal

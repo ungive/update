@@ -67,6 +67,9 @@ inline bool create_start_menu_entry(std::filesystem::path const& target_path,
     }
     std::filesystem::create_directories(directory.value());
     auto link_path = directory.value() / (link_name + ".lnk");
+    if (std::filesystem::exists(link_path)) {
+        std::filesystem::remove(link_path);
+    }
     // Source: https://stackoverflow.com/a/33841912/6748004
     CoInitialize(NULL);
     IShellLinkW* link = NULL;
