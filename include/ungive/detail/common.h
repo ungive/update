@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "ungive/detail/util.h"
+#include "ungive/internal/util.h"
 
 namespace ungive::update
 {

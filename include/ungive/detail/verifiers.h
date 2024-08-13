@@ -1,9 +1,9 @@
 #pragma once
 
 #include "ungive/detail/common.h"
-#include "ungive/detail/crypto.h"
-#include "ungive/detail/types.h"
-#include "ungive/detail/util.h"
+#include "ungive/internal/crypto.h"
+#include "ungive/internal/types.h"
+#include "ungive/internal/util.h"
 
 namespace ungive::update::verifiers
 {

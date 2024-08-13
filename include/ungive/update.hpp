@@ -15,12 +15,12 @@
 #include <yhirose/httplib.h>
 
 #include "detail/common.h"
-#include "detail/util.h"
 #include "detail/verifiers.h"
+#include "internal/util.h"
 
 #ifdef WIN32
-#include "detail/win/startmenu.h"
-#include "detail/zip.h"
+#include "internal/win/startmenu.h"
+#include "internal/zip.h"
 #endif
 
 namespace ungive::update
