@@ -129,12 +129,17 @@ public:
     }
 
     // Prunes all files in the manager's working directory
-    // except the given subdirectory, which should be the subdirectory
-    // of the currently running version (which shouldn't be deleted).
-    // That version and the newest version should be confirmed to be identical
-    // before calling this method.
-    void prune(std::string const& except_directory) const
+    // except the subdirectory for the given current version
+    // and the subdirectory for the newest installed version,
+    // as indicated by the return value of latest_installed_version().
+    void prune(version_number const& current_version) const
     {
+        std::unordered_set<std::filesystem::path> exclude_directories;
+        exclude_directories.insert(current_version.string());
+        auto latest_installed = latest_installed_version();
+        if (latest_installed.has_value()) {
+            exclude_directories.insert(latest_installed->first.string());
+        }
         std::filesystem::create_directories(m_working_directory);
         auto it = std::filesystem::directory_iterator(m_working_directory);
         std::optional<std::pair<version_number, std::filesystem::path>> result;
@@ -144,7 +149,8 @@ public:
                 continue;
             }
             auto filename = entry.path().filename().string();
-            if (filename == except_directory) {
+            if (exclude_directories.find(filename) !=
+                exclude_directories.end()) {
                 continue;
             }
             std::filesystem::remove_all(entry.path());

@@ -206,7 +206,7 @@ static auto PATTERN_ZIP = "^release-\\d+.\\d+.\\d+.zip$";
 static auto PATTERN_ZIP_SUBFOLDER = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
 
 update_manager create_update_manager(
-    std::string const& release_filename_pattern)
+    std::string const& release_filename_pattern = PATTERN_ZIP)
 {
     update_manager manager(UPDATE_WORKING_DIR);
     manager.set_source(mock_github_api_latest_retriever());
@@ -315,11 +315,9 @@ TEST(update_manager, StartMenuShortcutExistsAfterAddingRespectiveOperation)
     // std::filesystem::remove_all(directory.value());
 }
 
-TEST(update_manager, OldVersionIsDeletedAfterPruneIsCalled)
+void update_manager_prune_preparation(update_manager& manager,
+    version_number const& current_version, version_number const& new_version)
 {
-    auto current_version = version_number(1, 2, 2);
-    auto expected_version = version_number(1, 2, 3);
-    update_manager manager = create_update_manager(PATTERN_ZIP_SUBFOLDER);
     std::filesystem::remove_all(manager.working_directory());
     std::filesystem::create_directories(manager.working_directory());
     // Pretend there is an older version available.
@@ -330,16 +328,35 @@ TEST(update_manager, OldVersionIsDeletedAfterPruneIsCalled)
     auto result = manager.update(current_version);
     latest_installed = manager.latest_installed_version();
     ASSERT_TRUE(latest_installed.has_value());
-    EXPECT_EQ(expected_version, result.version);
+    EXPECT_EQ(new_version, result.version);
     EXPECT_TRUE(std::filesystem::exists(manager.working_directory() /
         result.version.string() / manager.sentinel_filename()));
-    // Note that this should only be done when:
-    // 1. the application has checked for updates and there are none, OR
-    // 2. the application has updated, restarted and is now running the update.
-    // either way the newest and currently running version shoule be the same.
-    manager.prune(expected_version.string());
+}
+
+TEST(update_manager, OldVersionIsDeletedAfterPruneIsCalledWithNewVersion)
+{
+    auto current_version = version_number(1, 2, 2);
+    auto expected_version = version_number(1, 2, 3);
+    update_manager manager = create_update_manager();
+    update_manager_prune_preparation(
+        manager, current_version, expected_version);
+    manager.prune(expected_version);
     EXPECT_FALSE(std::filesystem::exists(manager.working_directory() /
         current_version.string() / manager.sentinel_filename()));
     EXPECT_TRUE(std::filesystem::exists(manager.working_directory() /
-        result.version.string() / manager.sentinel_filename()));
+        expected_version.string() / manager.sentinel_filename()));
+}
+
+TEST(update_manager, OldVersionStillExistsAfterPruneIsCalledWithOldVersion)
+{
+    auto current_version = version_number(1, 2, 2);
+    auto expected_version = version_number(1, 2, 3);
+    update_manager manager = create_update_manager();
+    update_manager_prune_preparation(
+        manager, current_version, expected_version);
+    manager.prune(current_version);
+    EXPECT_TRUE(std::filesystem::exists(manager.working_directory() /
+        current_version.string() / manager.sentinel_filename()));
+    EXPECT_TRUE(std::filesystem::exists(manager.working_directory() /
+        expected_version.string() / manager.sentinel_filename()));
 }
