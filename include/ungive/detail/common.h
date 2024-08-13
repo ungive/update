@@ -200,4 +200,39 @@ private:
     std::string m_url{};
 };
 
+enum class update_status
+{
+    up_to_date,
+    latest_is_older,
+    update_downloaded,
+};
+
+enum class archive_type
+{
+    unknown,
+    zip_archive,
+    mac_disk_image,
+};
+
+struct update_result
+{
+    update_result(update_status status, version_number const& version)
+        : status{ status }, version{ version }
+    {
+        assert(status != update_status::update_downloaded);
+    }
+
+    update_result(update_status status, version_number const& version,
+        std::filesystem::path downloaded_directory)
+        : status{ status }, version{ version },
+          downloaded_directory{ downloaded_directory }
+    {
+        assert(status == update_status::update_downloaded);
+    }
+
+    update_status status;
+    version_number version;
+    std::optional<std::filesystem::path> downloaded_directory{};
+};
+
 } // namespace ungive::update
