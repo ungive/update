@@ -35,7 +35,7 @@ private:
     bool m_fail_if_not_flattened;
 };
 
-class install_start_menu_shortcut
+class create_start_menu_shortcut
     : public internal::types::post_update_operation_interface
 {
 public:
@@ -45,11 +45,14 @@ public:
     // of the extracted and installed update.
     // The category name is optional and resembles a subfolder
     // in which the shortcut is placed.
-    install_start_menu_shortcut(std::filesystem::path const& target_executable,
+    // Optionally, the start menu shortcut can only be updated,
+    // if it exists, and otherwise not be created.
+    create_start_menu_shortcut(std::filesystem::path const& target_executable,
         std::string const& link_name,
-        std::optional<std::string> const& category_name = std::nullopt)
+        std::optional<std::string> const& category_name = std::nullopt,
+        bool only_update = false)
         : m_target_executable{ target_executable }, m_link_name{ link_name },
-          m_category_name{ category_name }
+          m_category_name{ category_name }, m_only_update{ only_update }
     {
         if (link_name.empty()) {
             throw std::runtime_error("the link name cannot be empty");
@@ -68,6 +71,12 @@ public:
         if (!std::filesystem::exists(target_executable)) {
             throw std::runtime_error("the target executable does not exist");
         }
+        if (m_only_update &&
+            !internal::win::has_start_menu_entry(
+                target_executable, m_link_name, m_category_name.value_or(""))) {
+            // Start menu entry should only be updated but does not exist.
+            return;
+        }
         auto result = internal::win::create_start_menu_entry(
             target_executable, m_link_name, m_category_name.value_or(""));
         if (!result) {
@@ -79,6 +88,21 @@ private:
     std::filesystem::path m_target_executable;
     std::string m_link_name;
     std::optional<std::string> m_category_name;
+    bool m_only_update;
+};
+
+class update_start_menu_shortcut : public create_start_menu_shortcut
+{
+public:
+    // Works the same as create_start_menu_shortcut,
+    // but only updates the shortcut if it already exists.
+    update_start_menu_shortcut(std::filesystem::path const& target_executable,
+        std::string const& link_name,
+        std::optional<std::string> const& category_name = std::nullopt)
+        : create_start_menu_shortcut(
+              target_executable, link_name, category_name, true)
+    {
+    }
 };
 
 } // namespace ungive::update::operations

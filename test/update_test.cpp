@@ -306,13 +306,43 @@ TEST(update_manager, StartMenuShortcutExistsAfterAddingRespectiveOperation)
     auto directory = internal::win::programs_path("ungive_update_test");
     ASSERT_TRUE(directory.has_value());
     update_manager manager = create_update_manager(PATTERN_ZIP);
-    manager.add_post_update_operation(operations::install_start_menu_shortcut(
+    manager.add_post_update_operation(operations::create_start_menu_shortcut(
         "release-1.2.3.txt", "Release 1.2.3", "ungive_update_test"));
     update_manager_update_test(manager, "release-1.2.3.txt", false);
-    EXPECT_TRUE(std::filesystem::exists(directory.value()));
     EXPECT_TRUE(
         std::filesystem::exists(directory.value() / "Release 1.2.3.lnk"));
-    // std::filesystem::remove_all(directory.value());
+    std::filesystem::remove_all(directory.value());
+}
+
+TEST(update_manager, StartMenuShortcutDoesNotExistWhenOnlyUpdatingIt)
+{
+    auto directory = internal::win::programs_path("ungive_update_test");
+    ASSERT_TRUE(directory.has_value());
+    update_manager manager = create_update_manager(PATTERN_ZIP);
+    manager.add_post_update_operation(operations::update_start_menu_shortcut(
+        "release-1.2.3.txt", "Release 1.2.3", "ungive_update_test"));
+    update_manager_update_test(manager, "release-1.2.3.txt", false);
+    EXPECT_FALSE(std::filesystem::exists(directory.value()));
+    EXPECT_FALSE(
+        std::filesystem::exists(directory.value() / "Release 1.2.3.lnk"));
+    std::filesystem::remove_all(directory.value());
+}
+
+TEST(update_manager, StartMenuShortcutChangedWhenItExistedAndItIsUpdated)
+{
+    auto directory = internal::win::programs_path("ungive_update_test");
+    ASSERT_TRUE(directory.has_value());
+    auto link_path = directory.value() / "Release 1.2.3.lnk";
+    // Pretend that it already exists, but as an empty file.
+    internal::touch_file(link_path);
+    ASSERT_EQ(0, std::filesystem::file_size(link_path));
+    update_manager manager = create_update_manager(PATTERN_ZIP);
+    manager.add_post_update_operation(operations::update_start_menu_shortcut(
+        "release-1.2.3.txt", "Release 1.2.3", "ungive_update_test"));
+    update_manager_update_test(manager, "release-1.2.3.txt", false);
+    EXPECT_TRUE(std::filesystem::exists(link_path));
+    EXPECT_GT(std::filesystem::file_size(link_path), 0);
+    std::filesystem::remove_all(directory.value());
 }
 
 void update_manager_prune_preparation(update_manager& manager,

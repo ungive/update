@@ -58,6 +58,17 @@ inline std::optional<std::filesystem::path> programs_path(
     return path.value() / application_id;
 }
 
+inline bool has_start_menu_entry(std::filesystem::path const& target_path,
+    std::string const& link_name, std::string const& application_id = "")
+{
+    auto directory = programs_path(application_id);
+    if (!directory.has_value()) {
+        return false;
+    }
+    auto link_path = directory.value() / (link_name + ".lnk");
+    return std::filesystem::exists(link_path);
+}
+
 inline bool create_start_menu_entry(std::filesystem::path const& target_path,
     std::string const& link_name, std::string const& application_id = "")
 {
