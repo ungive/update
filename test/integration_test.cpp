@@ -1,9 +1,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "ungive/update.hpp"
+#include "update/updater.hpp"
 
-using namespace ungive::update;
+using namespace update;
 
 extern const char* PUBLIC_KEY;
 

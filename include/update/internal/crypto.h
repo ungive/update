@@ -7,7 +7,7 @@
 #include <openssl/decoder.h>
 #include <openssl/evp.h>
 
-namespace ungive::update::internal::crypto
+namespace update::internal::crypto
 {
 
 using public_key = std::shared_ptr<EVP_PKEY>;
@@ -95,4 +95,4 @@ inline std::string sha256_file(std::string const& path)
     return oss.str();
 }
 
-} // namespace ungive::update::internal::crypto
+} // namespace update::internal::crypto

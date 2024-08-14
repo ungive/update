@@ -4,7 +4,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "update/manager.hpp"
 #include "update/updater.hpp"
 
 using namespace update;
@@ -255,11 +254,6 @@ static auto PATTERN_ZIP_SUB = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
     return updater;
 }
 
-::manager to_manager(::updater const& updater)
-{
-    return ::manager(updater.working_directory(), updater.current_version());
-}
-
 TEST(updater, StatusIsUpToDateWhenVersionIsIdentical)
 {
     ::updater updater = create_updater(PATTERN_ZIP_SUB, UPDATED_VERSION);
@@ -273,6 +267,11 @@ TEST(updater, StatusIsLatestIsOlderWhenVersionIsLower)
         create_updater(PATTERN_ZIP_SUB, version_number(1, 3, 0));
     auto result = updater.update();
     EXPECT_EQ(update_status::latest_is_older, result.status);
+}
+
+inline ::manager to_manager(::updater const& updater)
+{
+    return manager(updater.working_directory(), updater.current_version());
 }
 
 void updater_update_test(::updater& updater,
@@ -402,11 +401,11 @@ void updater_prune_preparation(::updater& updater)
         result.version.string() / sentinel_filename()));
 }
 
-TEST(manager, OldVersionIsDeletedAfterPruneIsCalledWithNewVersion)
+TEST(updater, OldVersionIsDeletedAfterPruneIsCalledWithNewVersion)
 {
     ::updater updater = create_updater();
     updater_prune_preparation(updater);
-    // Recreate the updater since the preparation step installed an update.
+    // Recreate the manager since the preparation step installed an update.
     updater = create_updater(PATTERN_ZIP, UPDATED_VERSION);
     to_manager(updater).prune();
     EXPECT_FALSE(std::filesystem::exists(updater.working_directory() /
@@ -415,7 +414,7 @@ TEST(manager, OldVersionIsDeletedAfterPruneIsCalledWithNewVersion)
         UPDATED_VERSION.string() / sentinel_filename()));
 }
 
-TEST(manager, OldVersionStillExistsAfterPruneIsCalledWithOldVersion)
+TEST(updater, OldVersionStillExistsAfterPruneIsCalledWithOldVersion)
 {
     ::updater updater = create_updater();
     updater_prune_preparation(updater);

@@ -6,10 +6,10 @@
 
 #include <nlohmann/json.hpp>
 
-#include "ungive/detail/common.h"
-#include "ungive/internal/types.h"
+#include "update/detail/common.h"
+#include "update/internal/types.h"
 
-namespace ungive::update
+namespace update
 {
 struct github_api_latest_extractor
     : public internal::types::latest_extractor_interface
@@ -95,4 +95,4 @@ private:
     std::string m_repository;
 };
 
-} // namespace ungive::update
+} // namespace update

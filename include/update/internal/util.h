@@ -8,9 +8,7 @@
 #include <sstream>
 #include <utility>
 
-#include <openssl/sha.h>
-
-namespace ungive::update::internal
+namespace update::internal
 {
 
 // Creates a uniquely-named, temporary directory.
@@ -112,4 +110,4 @@ inline bool string_ends_with(std::string const& text, std::string const& suffix)
     return text.compare(offset, suffix.length(), suffix) == 0;
 }
 
-} // namespace ungive::update::internal
+} // namespace update::internal

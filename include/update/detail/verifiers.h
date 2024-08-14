@@ -1,11 +1,11 @@
 #pragma once
 
-#include "ungive/detail/common.h"
-#include "ungive/internal/crypto.h"
-#include "ungive/internal/types.h"
-#include "ungive/internal/util.h"
+#include "update/detail/common.h"
+#include "update/internal/crypto.h"
+#include "update/internal/types.h"
+#include "update/internal/util.h"
 
-namespace ungive::update::verifiers
+namespace update::verifiers
 {
 
 class verification_failed : public std::runtime_error
@@ -171,4 +171,4 @@ private:
     std::string m_sums_filename;
 };
 
-} // namespace ungive::update::verifiers
+} // namespace update::verifiers

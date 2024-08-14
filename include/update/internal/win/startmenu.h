@@ -6,7 +6,7 @@
 #include <Windows.h>
 #include <shlobj.h>
 
-namespace ungive::update::internal::win
+namespace update::internal::win
 {
 
 inline std::optional<std::filesystem::path> csidl_path(int csidl_value)
@@ -106,4 +106,4 @@ inline bool create_start_menu_entry(std::filesystem::path const& target_path,
     return true;
 }
 
-} // namespace ungive::update::internal::win
+} // namespace update::internal::win

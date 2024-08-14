@@ -7,10 +7,16 @@
 #include <string>
 #include <unordered_map>
 
-#include "ungive/internal/util.h"
+#include "update/internal/util.h"
 
-namespace ungive::update
+#define SENTINEL_FILENAME ".sentinel"
+
+namespace update
 {
+
+// Returns the name of the file that must be present in the root
+// of an extracted update's directory for it to be considered valid.
+static inline const char* sentinel_filename() { return SENTINEL_FILENAME; }
 
 // Represents a downloaded file.
 class downloaded_file
@@ -235,4 +241,6 @@ struct update_result
     std::optional<std::filesystem::path> downloaded_directory{};
 };
 
-} // namespace ungive::update
+#undef SENTINEL_FILENAME
+
+} // namespace update
