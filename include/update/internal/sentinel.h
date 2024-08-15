@@ -24,7 +24,6 @@ public:
     {
         if (std::filesystem::is_directory(location) ||
             location.filename() != sentinel_filename()) {
-            std::filesystem::create_directories(location);
             m_location = location / sentinel_filename();
         } else {
             m_location = location;
@@ -65,6 +64,11 @@ public:
         if (!m_version.has_value()) {
             throw std::runtime_error("missing version information");
         }
+        if (!m_location.has_parent_path()) {
+            assert(false);
+            throw std::runtime_error("internal location has no parent path");
+        }
+        std::filesystem::create_directories(m_location.parent_path());
         internal::write_file(m_location, "version=" + m_version->string());
     }
 
