@@ -663,9 +663,9 @@ TEST(manager, OnlyLatestDirectoryExistsAfterApplyLatestIsCalled)
     EXPECT_FALSE(std::filesystem::exists(
         updater.working_directory() / LATEST_DIRECTORY));
     auto manager = to_manager(updater);
-    bool apply_result = false;
+    std::optional<version_number> apply_result;
     EXPECT_NO_THROW(apply_result = manager.apply_latest());
-    EXPECT_TRUE(apply_result);
+    EXPECT_EQ(UPDATED_VERSION, apply_result);
     EXPECT_FALSE(std::filesystem::exists(
         updater.working_directory() / UPDATED_VERSION.string()));
     EXPECT_TRUE(std::filesystem::exists(
@@ -756,10 +756,10 @@ TEST(manager, ExceptionThrownWhenApplyLatestDoesNotKillButLatestHasProcess)
     EXPECT_NO_THROW(launcher.run_sleep(10s));
     // Apply the latest update.
     auto manager = to_manager(updater);
-    bool apply_result = false;
+    std::optional<version_number> apply_result{};
     // Don't kill processes for this test (false).
     EXPECT_ANY_THROW(apply_result = manager.apply_latest(false));
-    EXPECT_FALSE(apply_result);
+    EXPECT_EQ(std::nullopt, apply_result);
     // Check that the process exits properly by having output.
     auto output = launcher.wait_for_output(15s);
     EXPECT_EQ("ok", output);

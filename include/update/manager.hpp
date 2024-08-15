@@ -267,7 +267,7 @@ public:
     //
     // May throw an exception if any error occurs.
     //
-    bool apply_latest(bool kill_processes = true)
+    std::optional<version_number> apply_latest(bool kill_processes = true)
     {
         auto latest_directory = latest_path();
         auto latest = internal::sentinel(latest_directory);
@@ -290,9 +290,9 @@ public:
             // Rename update to the latest name and delete the update directory.
             std::filesystem::rename(update->second, latest_directory);
             std::filesystem::remove_all(update->second);
-            return true;
+            return update->first;
         }
-        return false;
+        return std::nullopt;
     }
 
     // Only call this method from the launcher executable.
