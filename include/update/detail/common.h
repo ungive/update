@@ -9,14 +9,8 @@
 
 #include "update/internal/util.h"
 
-#define SENTINEL_FILENAME ".sentinel"
-
 namespace update
 {
-
-// Returns the name of the file that must be present in the root
-// of an extracted update's directory for it to be considered valid.
-static inline const char* sentinel_filename() { return SENTINEL_FILENAME; }
 
 // Represents a downloaded file.
 class downloaded_file
@@ -32,16 +26,7 @@ public:
     // Reads the entire file into a string.
     std::string read(std::ios::openmode mode = std::ios::in) const
     {
-        if (!std::filesystem::exists(m_path)) {
-            throw std::runtime_error("file to read does not exist: " + m_path);
-        }
-        std::ifstream t(m_path, mode);
-        t.seekg(0, std::ios::end);
-        size_t size = t.tellg();
-        std::string buffer(size, '_');
-        t.seekg(0);
-        t.read(&buffer[0], size);
-        return buffer;
+        return internal::read_file(m_path, mode);
     }
 
 private:
@@ -240,7 +225,5 @@ struct update_result
     version_number version;
     std::optional<std::filesystem::path> downloaded_directory{};
 };
-
-#undef SENTINEL_FILENAME
 
 } // namespace update

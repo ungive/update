@@ -8,6 +8,7 @@
 #include "update/updater.hpp"
 
 using namespace update;
+using namespace std::chrono_literals;
 
 // Used test files:
 // - https://ungive.github.io/update_test/github-api-mock/latest-simple.json
@@ -15,8 +16,8 @@ using namespace update;
 // Test releases: https://github.com/ungive/update_test/releases
 
 #ifdef WIN32
-const char* UPDATE_WORKING_DIR =
-    "C:\\Users\\Jonas\\AppData\\Local\\ungive_update_test_dir";
+const std::filesystem::path UPDATE_WORKING_DIR =
+    internal::win::local_appdata_path("ungive_update_test_dir").value();
 #endif
 
 const char* PUBLIC_KEY = R"key(
@@ -241,7 +242,13 @@ static auto UPDATED_VERSION = version_number(1, 2, 3);
 static auto PATTERN_ZIP = "^release-\\d+.\\d+.\\d+.zip$";
 static auto PATTERN_ZIP_SUB = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
 
-::updater create_updater(
+::manager create_manager(
+    version_number const& current_version = PREVIOUS_VERSION)
+{
+    return ::manager(UPDATE_WORKING_DIR, current_version);
+}
+
+::updater internal_create_updater(
     std::string const& release_filename_pattern = PATTERN_ZIP,
     version_number const& current_version = PREVIOUS_VERSION)
 {
@@ -253,6 +260,21 @@ static auto PATTERN_ZIP_SUB = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
     updater.add_update_verification(verifiers::message_digest(
         "SHA256SUMS.txt", "SHA256SUMS.txt.sig", "PEM", "ED25519", PUBLIC_KEY));
     return updater;
+}
+
+::updater create_updater(
+    std::string const& release_filename_pattern = PATTERN_ZIP,
+    version_number const& current_version = PREVIOUS_VERSION)
+{
+    std::filesystem::remove_all(UPDATE_WORKING_DIR);
+    return internal_create_updater(release_filename_pattern, current_version);
+}
+
+::updater recreate_updater(
+    std::string const& release_filename_pattern = PATTERN_ZIP,
+    version_number const& current_version = PREVIOUS_VERSION)
+{
+    return internal_create_updater(release_filename_pattern, current_version);
 }
 
 ::manager to_manager(::updater const& updater)
@@ -275,34 +297,54 @@ TEST(updater, StatusIsLatestIsOlderWhenVersionIsLower)
     EXPECT_EQ(update_status::latest_is_older, result.status);
 }
 
-void updater_update_test(::updater& updater,
+void write_sentinel(
+    std::filesystem::path const& directory, version_number const& version)
+{
+    internal::sentinel sentinel(directory);
+    sentinel.version(version);
+    sentinel.write();
+}
+
+std::optional<version_number> read_sentinel(
+    std::filesystem::path const& directory)
+{
+    internal::sentinel sentinel(directory);
+    if (!sentinel.read()) {
+        return std::nullopt;
+    }
+    return sentinel.version();
+}
+
+std::optional<update_result> updater_update_test(::updater& updater,
     std::filesystem::path const& expected_extracted_file,
     bool should_throw = false)
 {
     std::filesystem::remove_all(updater.working_directory());
     std::optional<update_result> result;
-    EXPECT_EQ(std::nullopt, to_manager(updater).latest_available_version());
+    EXPECT_EQ(std::nullopt, to_manager(updater).latest_available_update());
     if (should_throw) {
         EXPECT_ANY_THROW(result = updater.update());
         std::filesystem::remove_all(updater.working_directory());
-        return;
+        return std::nullopt;
     } else {
         EXPECT_NO_THROW(result = updater.update());
     }
-    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.has_value());
     EXPECT_EQ(update_status::update_downloaded, result->status);
-    ASSERT_TRUE(result->downloaded_directory.has_value());
+    EXPECT_TRUE(result->downloaded_directory.has_value());
     EXPECT_EQ(updater.working_directory() / result->version.string(),
         result->downloaded_directory);
     EXPECT_TRUE(std::filesystem::exists(result->downloaded_directory.value()));
     EXPECT_TRUE(std::filesystem::exists(
         result->downloaded_directory.value() / expected_extracted_file));
-    auto latest_installed = to_manager(updater).latest_available_version();
-    ASSERT_TRUE(latest_installed.has_value());
+    auto latest_installed = to_manager(updater).latest_available_update();
+    EXPECT_TRUE(latest_installed.has_value());
     EXPECT_EQ(version_number(1, 2, 3), result->version);
     EXPECT_EQ(result->version, latest_installed->first);
     EXPECT_EQ(result->downloaded_directory, latest_installed->second);
-    std::filesystem::remove_all(updater.working_directory());
+    EXPECT_EQ(
+        result->version, read_sentinel(result->downloaded_directory.value()));
+    return result;
 }
 
 TEST(updater, UpdateIsInstalledWhenZipHasSubfolder)
@@ -339,6 +381,16 @@ TEST(updater, UpdateSucceedsWhenZipHasNoSubfolderButIsFlattenedSilently)
     updater.add_post_update_operation(
         operations::flatten_extracted_directory(false));
     updater_update_test(updater, "release-1.2.3.txt", false);
+}
+
+TEST(updater, LatestAvailableUpdateReturnsNothingWhenSentinelMismatches)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    auto result = updater_update_test(updater, "release-1.2.3.txt");
+    write_sentinel(
+        result->downloaded_directory.value(), version_number(1, 3, 0));
+    auto latest = to_manager(updater).latest_available_update();
+    EXPECT_EQ(std::nullopt, latest);
 }
 
 TEST(updater, StartMenuShortcutExistsAfterAddingRespectiveOperation)
@@ -390,38 +442,399 @@ void updater_prune_preparation(::updater& updater)
     std::filesystem::remove_all(updater.working_directory());
     std::filesystem::create_directories(updater.working_directory());
     // Pretend there is an older version available.
-    internal::touch_file(updater.working_directory() /
-        PREVIOUS_VERSION.string() / sentinel_filename());
-    auto latest_installed = to_manager(updater).latest_available_version();
+    write_sentinel(updater.working_directory() / PREVIOUS_VERSION.string(),
+        PREVIOUS_VERSION);
+    auto latest_installed = to_manager(updater).latest_available_update();
     EXPECT_EQ(PREVIOUS_VERSION, latest_installed->first);
     auto result = updater.update();
-    latest_installed = to_manager(updater).latest_available_version();
+    latest_installed = to_manager(updater).latest_available_update();
     ASSERT_TRUE(latest_installed.has_value());
     EXPECT_EQ(UPDATED_VERSION, result.version);
-    EXPECT_TRUE(std::filesystem::exists(updater.working_directory() /
-        result.version.string() / sentinel_filename()));
+    auto sentinel_version =
+        read_sentinel(updater.working_directory() / result.version.string());
+    EXPECT_EQ(result.version, sentinel_version);
 }
 
-TEST(manager, OldVersionIsDeletedAfterPruneIsCalledWithNewVersion)
+TEST(updater, OldVersionIsDeletedAfterPruneIsCalledWithNewVersion)
 {
     ::updater updater = create_updater();
     updater_prune_preparation(updater);
     // Recreate the updater since the preparation step installed an update.
-    updater = create_updater(PATTERN_ZIP, UPDATED_VERSION);
+    updater = recreate_updater(PATTERN_ZIP, UPDATED_VERSION);
     to_manager(updater).prune();
-    EXPECT_FALSE(std::filesystem::exists(updater.working_directory() /
-        PREVIOUS_VERSION.string() / sentinel_filename()));
-    EXPECT_TRUE(std::filesystem::exists(updater.working_directory() /
-        UPDATED_VERSION.string() / sentinel_filename()));
+    EXPECT_FALSE(
+        read_sentinel(updater.working_directory() / PREVIOUS_VERSION.string())
+            .has_value());
+    EXPECT_TRUE(
+        read_sentinel(updater.working_directory() / UPDATED_VERSION.string())
+            .has_value());
 }
 
-TEST(manager, OldVersionStillExistsAfterPruneIsCalledWithOldVersion)
+TEST(updater, OldVersionStillExistsAfterPruneIsCalledWithOldVersion)
 {
     ::updater updater = create_updater();
     updater_prune_preparation(updater);
     to_manager(updater).prune();
-    EXPECT_TRUE(std::filesystem::exists(updater.working_directory() /
-        PREVIOUS_VERSION.string() / sentinel_filename()));
-    EXPECT_TRUE(std::filesystem::exists(updater.working_directory() /
-        UPDATED_VERSION.string() / sentinel_filename()));
+    EXPECT_TRUE(
+        read_sentinel(updater.working_directory() / PREVIOUS_VERSION.string())
+            .has_value());
+    EXPECT_TRUE(
+        read_sentinel(updater.working_directory() / UPDATED_VERSION.string())
+            .has_value());
+}
+
+TEST(sentinel, ReadingWorksWhenSentinelHasUnknownKeys)
+{
+    auto directory = internal::create_temporary_directory();
+    std::ostringstream oss;
+    oss << "version=1.1.2\n";
+    oss << "another_key=hello\n";
+    oss << "\n"; // empty line
+    internal::write_file(directory / internal::sentinel_filename(), oss.str());
+    internal::sentinel sentinel(directory);
+    EXPECT_TRUE(sentinel.read());
+    EXPECT_EQ(version_number(1, 1, 2), sentinel.version());
+}
+
+TEST(sentinel, ReadingFailsWhenSentinelHasNoVersionKey)
+{
+    auto directory = internal::create_temporary_directory();
+    std::ostringstream oss;
+    oss << "another_key=hello\n";
+    oss << "\n"; // empty line
+    internal::write_file(directory / internal::sentinel_filename(), oss.str());
+    internal::sentinel sentinel(directory);
+    EXPECT_FALSE(sentinel.read());
+}
+
+class test_launcher
+{
+public:
+    test_launcher(version_number const& version = PREVIOUS_VERSION)
+    {
+        m_executable = internal::win::current_process_executable();
+        m_temp_directory = internal::create_temporary_directory();
+        m_output_file = m_temp_directory / "out.txt";
+        m_version = version;
+    }
+
+    ~test_launcher()
+    {
+        if (std::filesystem::exists(m_temp_directory)) {
+            std::filesystem::remove_all(m_temp_directory);
+        }
+    }
+
+    void executable(std::filesystem::path const& path) { m_executable = path; }
+
+    std::filesystem::path const& executable() const { return m_executable; }
+
+    std::vector<std::string> print_args(std::string const& text) const
+    {
+        return { "--print", m_output_file.string(), text };
+    }
+
+    std::vector<std::string> sleep_args(
+        std::chrono::milliseconds duration) const
+    {
+        return { "--sleep", m_output_file.string(),
+            std::to_string(duration.count()) };
+    }
+
+    std::vector<std::string> apply_latest_args() const
+    {
+        return { "--apply-latest", m_output_file.string(), m_version.string() };
+    }
+
+    std::vector<std::string> apply_and_start_latest_args() const
+    {
+        return { "--apply-and-start-latest", m_output_file.string(),
+            m_version.string() };
+    }
+
+    bool run_print(std::string const& text) const
+    {
+        return internal::win::start_process_detached(
+            executable(), print_args(text));
+    }
+
+    bool run_apply_latest() const
+    {
+        return internal::win::start_process_detached(
+            executable(), apply_latest_args());
+    }
+
+    bool run_apply_and_start_latest() const
+    {
+        return internal::win::start_process_detached(
+            executable(), apply_and_start_latest_args());
+    }
+
+    bool run_sleep(std::chrono::milliseconds duration) const
+    {
+        return internal::win::start_process_detached(
+            executable(), sleep_args(duration));
+    }
+
+    std::string wait_for_output(std::chrono::milliseconds timeout = 10s) const
+    {
+        // Note: somehow writing an empty output makes this time out.
+        static const auto interval = 250ms;
+        // Wait a bit in case we are interrupting the writing process.
+        static const auto wait_count = 2;
+        int waited_for = 0;
+        auto steps = static_cast<size_t>(timeout / interval);
+        for (size_t i = 0; i < steps + wait_count + 1; i++) {
+            std::this_thread::sleep_for(interval);
+            try {
+                auto result = internal::read_file(m_output_file);
+                if (waited_for >= wait_count) {
+                    return result;
+                }
+                if (result.size() > 0) {
+                    waited_for++;
+                }
+            }
+            catch (...) {
+            }
+        }
+        throw std::runtime_error("waiting for launcher output timed out");
+    }
+
+private:
+    std::filesystem::path m_executable;
+    std::filesystem::path m_output_file;
+    std::filesystem::path m_temp_directory;
+    std::vector<std::string> m_apply_latest_args;
+    version_number m_version;
+};
+
+int main(int argc, char* argv[])
+{
+    try {
+        if (argc == 4 && std::string(argv[1]) == "--print") {
+            std::filesystem::path output_file(argv[2]);
+            internal::write_file(output_file, argv[3]);
+            return 0;
+        }
+        if (argc == 4 && std::string(argv[1]) == "--sleep") {
+            std::filesystem::path output_file(argv[2]);
+            auto duration_millis = std::stoi(argv[3]);
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds{ duration_millis });
+            internal::write_file(output_file, "ok");
+            return 0;
+        }
+        if (argc == 4 && std::string(argv[1]) == "--apply-latest") {
+            std::filesystem::path output_file(argv[2]);
+            auto current_version = version_number::from_string(argv[3]);
+            ::manager manager(UPDATE_WORKING_DIR, current_version);
+            manager.apply_latest();
+            internal::write_file(output_file, "ok");
+            return 0;
+        }
+        if (argc == 4 && std::string(argv[1]) == "--apply-and-start-latest") {
+            std::filesystem::path output_file(argv[2]);
+            auto current_version = version_number::from_string(argv[3]);
+            ::manager manager(UPDATE_WORKING_DIR, current_version);
+            manager.apply_latest();
+            test_launcher nested_launcher(current_version);
+            manager.start_latest(nested_launcher.executable(),
+                nested_launcher.print_args("success"));
+            auto output = nested_launcher.wait_for_output();
+            internal::write_file(output_file, "start_latest: " + output);
+            return 0;
+        }
+    }
+    catch (std::exception const& e) {
+        internal::write_file(argv[2], std::string("error: ") + e.what());
+    }
+
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+
+TEST(manager, OnlyLatestDirectoryExistsAfterApplyLatestIsCalled)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater_update_test(updater, "release-1.2.3.txt");
+    EXPECT_TRUE(std::filesystem::exists(
+        updater.working_directory() / UPDATED_VERSION.string()));
+    EXPECT_FALSE(
+        std::filesystem::exists(updater.working_directory() / "latest"));
+    auto manager = to_manager(updater);
+    bool apply_result = false;
+    EXPECT_NO_THROW(apply_result = manager.apply_latest());
+    EXPECT_TRUE(apply_result);
+    EXPECT_FALSE(std::filesystem::exists(
+        updater.working_directory() / UPDATED_VERSION.string()));
+    EXPECT_TRUE(
+        std::filesystem::exists(updater.working_directory() / "latest"));
+    internal::sentinel latest_sentinel(updater.working_directory() / "latest");
+    EXPECT_TRUE(latest_sentinel.read());
+    EXPECT_EQ(UPDATED_VERSION, latest_sentinel.version());
+}
+
+TEST(manager, LauncherAppliesLatestAfterLauncherIsManuallyStarted)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater_update_test(updater, "release-1.2.3.txt");
+    EXPECT_TRUE(std::filesystem::exists(
+        updater.working_directory() / UPDATED_VERSION.string()));
+    EXPECT_FALSE(
+        std::filesystem::exists(updater.working_directory() / "latest"));
+    test_launcher launcher(PREVIOUS_VERSION);
+    EXPECT_TRUE(launcher.run_apply_latest());
+    auto output = launcher.wait_for_output();
+    EXPECT_EQ("ok", output);
+    EXPECT_FALSE(std::filesystem::exists(
+        updater.working_directory() / UPDATED_VERSION.string()));
+    EXPECT_TRUE(
+        std::filesystem::exists(updater.working_directory() / "latest"));
+    internal::sentinel latest_sentinel(updater.working_directory() / "latest");
+    EXPECT_TRUE(latest_sentinel.read());
+    EXPECT_EQ(UPDATED_VERSION, latest_sentinel.version());
+}
+
+TEST(manager, LauncherIsStartedAndAppliesLatestAfterLaunchLatestIsCalled)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater_update_test(updater, "release-1.2.3.txt");
+    EXPECT_TRUE(std::filesystem::exists(
+        updater.working_directory() / UPDATED_VERSION.string()));
+    EXPECT_FALSE(
+        std::filesystem::exists(updater.working_directory() / "latest"));
+    test_launcher launcher(PREVIOUS_VERSION);
+    auto manager = to_manager(updater);
+    bool result = false;
+    EXPECT_NO_THROW(result = manager.launch_latest(
+                        launcher.executable(), launcher.apply_latest_args()));
+    EXPECT_TRUE(result);
+    auto output = launcher.wait_for_output();
+    EXPECT_EQ("ok", output);
+    EXPECT_FALSE(std::filesystem::exists(
+        updater.working_directory() / UPDATED_VERSION.string()));
+    EXPECT_TRUE(
+        std::filesystem::exists(updater.working_directory() / "latest"));
+    internal::sentinel latest_sentinel(updater.working_directory() / "latest");
+    EXPECT_TRUE(latest_sentinel.read());
+    EXPECT_EQ(UPDATED_VERSION, latest_sentinel.version());
+}
+
+TEST(manager, LauncherIsStartedWhenLauncherPathIsRelativeToTestExecutable)
+{
+    auto process_executable = internal::win::current_process_executable();
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater_update_test(updater, "release-1.2.3.txt");
+    test_launcher launcher(PREVIOUS_VERSION);
+    auto manager = to_manager(updater);
+    bool result = false;
+    EXPECT_NO_THROW(result = manager.launch_latest(
+                        std::filesystem::relative(launcher.executable(),
+                            process_executable.parent_path()),
+                        launcher.apply_latest_args()));
+    EXPECT_TRUE(result);
+    auto output = launcher.wait_for_output();
+    EXPECT_EQ("ok", output);
+}
+
+TEST(manager, ExceptionThrownWhenApplyLatestDoesNotKillButLatestHasProcess)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater_update_test(updater, "release-1.2.3.txt");
+    // Copy the test executable to the latest directory and make it sleep.
+    auto process_executable = internal::win::current_process_executable();
+    auto latest_directory = updater.working_directory() / "latest";
+    auto latest_executable = latest_directory / process_executable.filename();
+    EXPECT_TRUE(std::filesystem::create_directories(latest_directory));
+    std::filesystem::copy(process_executable, latest_executable);
+    test_launcher launcher(PREVIOUS_VERSION);
+    launcher.executable(latest_executable);
+    ASSERT_TRUE(launcher.run_sleep(10s));
+    // Apply the latest update.
+    auto manager = to_manager(updater);
+    bool apply_result = false;
+    // Don't kill processes for this test (false).
+    EXPECT_ANY_THROW(apply_result = manager.apply_latest(false));
+    EXPECT_FALSE(apply_result);
+    // Check that the process exits properly by having output.
+    auto output = launcher.wait_for_output(15s);
+    EXPECT_EQ("ok", output);
+}
+
+TEST(manager, LatestIsStartedWhenLauncherAppliesAndStartsLatestUpdate)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater_update_test(updater, "release-1.2.3.txt");
+    test_launcher launcher(PREVIOUS_VERSION);
+    // Copy the test executable to the update directory.
+    auto process_executable = internal::win::current_process_executable();
+    auto update_executable = updater.working_directory() /
+        UPDATED_VERSION.string() / process_executable.filename();
+    std::filesystem::copy(process_executable, update_executable);
+    // Now try starting the executable by first applying the update
+    // with the launcher and then starting the executable with the launcher,
+    // which should now be in the latest directory.
+    auto manager = to_manager(updater);
+    bool result = false;
+    EXPECT_NO_THROW(result = manager.launch_latest(launcher.executable(),
+                        launcher.apply_and_start_latest_args()));
+    EXPECT_TRUE(result);
+    auto output = launcher.wait_for_output();
+    EXPECT_EQ("start_latest: success", output);
+    EXPECT_TRUE(std::filesystem::exists(updater.working_directory() / "latest" /
+        process_executable.filename()));
+}
+
+TEST(manager, LaunchLatestReturnsFalseWhenThereIsNothingToLaunch)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    auto manager = to_manager(updater);
+    bool result = false;
+    test_launcher launcher(PREVIOUS_VERSION);
+    EXPECT_NO_THROW(result = manager.launch_latest(
+                        launcher.executable(), launcher.print_args("ok")));
+    EXPECT_FALSE(result);
+}
+
+void manager_launch_latest_return_value_test(
+    version_number const& existing_version, bool return_value,
+    bool use_latest_directory_name = false)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    auto directory = updater.working_directory() /
+        (use_latest_directory_name ? "latest" : existing_version.string());
+    std::filesystem::create_directories(directory);
+    internal::sentinel sentinel(directory);
+    sentinel.version(existing_version);
+    sentinel.write();
+    auto manager = to_manager(updater);
+    bool result = false;
+    test_launcher launcher(PREVIOUS_VERSION);
+    EXPECT_NO_THROW(result = manager.launch_latest(launcher.executable(),
+                        launcher.print_args("launched")));
+    EXPECT_EQ(return_value, result);
+    if (result) {
+        auto output = launcher.wait_for_output();
+        EXPECT_EQ("launched", output);
+    }
+}
+
+TEST(manager, LaunchLatestReturnsTrueWhenThereIsANewerVersion)
+{
+    manager_launch_latest_return_value_test(UPDATED_VERSION, true);
+    manager_launch_latest_return_value_test(UPDATED_VERSION, true, true);
+}
+
+TEST(manager, LaunchLatestReturnsFalseWhenThereIsAnIdenticalVersion)
+{
+    manager_launch_latest_return_value_test(PREVIOUS_VERSION, false);
+    manager_launch_latest_return_value_test(PREVIOUS_VERSION, false, true);
+}
+
+TEST(manager, LaunchLatestReturnsFalseWhenThereIsAnOlderVersion)
+{
+    manager_launch_latest_return_value_test(version_number(0, 0, 1), false);
+    manager_launch_latest_return_value_test(
+        version_number(0, 0, 1), false, true);
 }

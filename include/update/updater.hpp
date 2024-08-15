@@ -16,6 +16,7 @@
 #include "update/detail/github.h"
 #include "update/detail/operations.h"
 #include "update/detail/verifiers.h"
+#include "update/internal/sentinel.h"
 #include "update/internal/util.h"
 
 #ifdef WIN32
@@ -153,7 +154,7 @@ private:
                         e.what());
                 }
             }
-            create_sentinel_file(output_directory);
+            create_sentinel_file(output_directory, version);
             break;
 #endif
         default:
@@ -162,9 +163,12 @@ private:
         return output_directory;
     }
 
-    inline void create_sentinel_file(std::filesystem::path directory) const
+    inline void create_sentinel_file(
+        std::filesystem::path directory, version_number const& version) const
     {
-        internal::touch_file(directory / sentinel_filename());
+        internal::sentinel sentinel(directory);
+        sentinel.version(version);
+        sentinel.write();
     }
 
     std::filesystem::path m_working_directory;

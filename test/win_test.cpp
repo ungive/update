@@ -1,6 +1,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "update/internal/win/process.h"
+#include "update/internal/win/startmenu.h"
 #include "update/updater.hpp"
 
 using namespace update;
@@ -69,4 +71,11 @@ TEST(startmenu, StartMenuEntryExistsAfterCallingCreateStartMenuEntry)
     auto expected_file = expected_directory.value() / "Firefox.lnk";
     ASSERT_TRUE(std::filesystem::exists(expected_file));
     std::filesystem::remove_all(expected_directory.value());
+}
+
+TEST(process, ExceptionIsThrownWhenLaunchingBadExecutable)
+{
+    EXPECT_ANY_THROW(internal::win::start_process_detached(
+        internal::win::current_process_executable().parent_path() /
+        "madeupexecutable.exe"));
 }

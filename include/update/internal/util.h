@@ -46,6 +46,35 @@ inline void touch_file(std::filesystem::path path)
     f.close();
 }
 
+// Writes a string to a file.
+inline void write_file(std::filesystem::path path, std::string const& content,
+    std::ios::openmode mode = std::ios::out | std::ios::binary)
+{
+    if (path.has_parent_path())
+        std::filesystem::create_directories(path.parent_path());
+    std::ofstream f(path, mode);
+    f.write(content.data(), content.size());
+    f.flush();
+    f.close();
+}
+
+// Reads the contents of a file into a string.
+inline std::string read_file(
+    std::filesystem::path path, std::ios::openmode mode = std::ios::in)
+{
+    if (!std::filesystem::exists(path)) {
+        throw std::runtime_error(
+            "file to read does not exist: " + path.string());
+    }
+    std::ifstream t(path, mode);
+    t.seekg(0, std::ios::end);
+    size_t size = t.tellg();
+    std::string buffer(size, '_');
+    t.seekg(0);
+    t.read(&buffer[0], size);
+    return buffer;
+}
+
 // Generates a random, alphanumeric string.
 inline std::string random_string(std::size_t length)
 {
@@ -108,6 +137,15 @@ inline bool string_ends_with(std::string const& text, std::string const& suffix)
     }
     auto offset = text.length() - suffix.length();
     return text.compare(offset, suffix.length(), suffix) == 0;
+}
+
+// Source: https://stackoverflow.com/a/74916567/6748004
+inline bool is_subpath(
+    const std::filesystem::path& path, const std::filesystem::path& base)
+{
+    const auto mismatch_pair =
+        std::mismatch(path.begin(), path.end(), base.begin(), base.end());
+    return mismatch_pair.second == base.end();
 }
 
 } // namespace update::internal
