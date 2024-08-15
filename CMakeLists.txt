@@ -1,26 +1,24 @@
 cmake_minimum_required(VERSION 3.8)
 project(libupdate)
 
-option(LIBUPDATE_BUILD_TESTS "Build unit tests" ON)
-option(LIBUPDATE_WITH_GITHUB "Include GitHub updater" ON)
+option(LIBUPDATE_BUILD_TESTS "Build unit tests" OFF)
 
+# Full libupdate library with updater and manager dependencies.
 add_library(libupdate INTERFACE)
+# Partial library with only manager dependencies.
+add_library(libupdate_manager INTERFACE)
+
 target_include_directories(libupdate INTERFACE ./include)
+target_include_directories(libupdate_manager INTERFACE ./include)
+
 target_include_directories(libupdate
                            INTERFACE third_party/yhirose+cpp-httplib/include)
 target_compile_definitions(libupdate INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
-
-if(LIBUPDATE_WITH_GITHUB)
-    target_compile_definitions(libupdate INTERFACE UPDATE_WITH_GITHUB)
-    target_include_directories(libupdate
-                               INTERFACE third_party/nlohmann+json/include)
-endif()
-
+target_compile_definitions(libupdate INTERFACE UPDATE_WITH_GITHUB)
+target_include_directories(libupdate
+                           INTERFACE third_party/nlohmann+json/include)
 find_package(OpenSSL REQUIRED)
 target_link_libraries(libupdate INTERFACE OpenSSL::SSL OpenSSL::Crypto)
-
-set_property(TARGET libupdate PROPERTY CXX_STANDARD 17)
-set_property(TARGET libupdate PROPERTY CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # minizip on windows for extracting release files
 if(WIN32)
@@ -36,6 +34,9 @@ if(WIN32)
     add_subdirectory(third_party/zlib-ng+minizip-ng)
     target_link_libraries(libupdate INTERFACE MINIZIP::minizip)
 endif()
+
+set_property(TARGET libupdate PROPERTY CXX_STANDARD 17)
+set_property(TARGET libupdate PROPERTY CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(libupdate INTERFACE TEST_BUILD)
