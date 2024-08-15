@@ -59,6 +59,7 @@ public:
         : m_working_directory{ working_directory },
           m_current_version{ current_version }
     {
+        write_sentinel_for_current_process();
     }
 
     // Returns the name of the latest directory.
@@ -350,6 +351,30 @@ private:
     inline std::filesystem::path latest_path()
     {
         return m_working_directory / m_latest_directory;
+    }
+
+    void write_sentinel_for_current_process()
+    {
+        auto latest = latest_path();
+        if (!std::filesystem::exists(latest)) {
+            return;
+        }
+        try {
+            auto process = internal::win::current_process_executable();
+            bool is_process_latest = internal::is_subpath(process, latest);
+            if (is_process_latest) {
+                internal::sentinel sentinel(latest);
+                // Skip this check for now, we just always overwrite it.
+                // if (sentinel.read() &&
+                //     sentinel.version() == m_current_version) {
+                //     return;
+                // }
+                sentinel.version(m_current_version);
+                sentinel.write();
+            }
+        }
+        catch (...) {
+        }
     }
 
     std::filesystem::path m_working_directory;

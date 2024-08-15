@@ -849,3 +849,52 @@ TEST(updater, ThrowsExceptionWhenCancelStateIsSetToTrue)
     updater.cancel(true);
     updater_update_test(updater, "release-1.2.3/release-1.2.3.txt", true);
 }
+
+TEST(manager, MissingSentinelIsCreatedWhenManagerIsCreatedAndLatestExists)
+{
+    // Note that the sentinel file is only created automatically,
+    // when the current process is executing an executable
+    // that is located in the latest directory.
+    // This is the case here.
+    std::filesystem::remove_all(UPDATE_WORKING_DIR);
+    auto expected_version = version_number(4, 3, 1);
+    auto process_executable = internal::win::current_process_executable();
+    auto latest_directory = UPDATE_WORKING_DIR / LATEST_DIRECTORY;
+    auto latest_executable = latest_directory / process_executable.filename();
+    EXPECT_TRUE(std::filesystem::create_directories(latest_directory));
+    std::filesystem::copy(process_executable, latest_executable);
+    test_launcher launcher(expected_version);
+    launcher.executable(latest_executable);
+    EXPECT_NO_THROW(launcher.run_apply_latest());
+    EXPECT_EQ("ok", launcher.wait_for_output());
+    internal::sentinel sentinel(UPDATE_WORKING_DIR / LATEST_DIRECTORY);
+    EXPECT_TRUE(sentinel.read());
+    EXPECT_EQ(expected_version, sentinel.version());
+}
+
+TEST(manager, SentinelIsOverwrittenWhenManagerIsCreatedAndSentinelHasBadVersion)
+{
+    // Note that the sentinel file is only created automatically,
+    // when the current process is executing an executable
+    // that is located in the latest directory.
+    // This is the case here.
+    std::filesystem::remove_all(UPDATE_WORKING_DIR);
+    auto expected_version = version_number(4, 3, 1);
+    auto other_version = version_number(1, 1, 1);
+    auto process_executable = internal::win::current_process_executable();
+    auto latest_directory = UPDATE_WORKING_DIR / LATEST_DIRECTORY;
+    auto latest_executable = latest_directory / process_executable.filename();
+    EXPECT_TRUE(std::filesystem::create_directories(latest_directory));
+    std::filesystem::copy(process_executable, latest_executable);
+    // The sentinel exists and has a different version.
+    internal::sentinel sentinel1(latest_directory);
+    sentinel1.version(other_version);
+    sentinel1.write();
+    test_launcher launcher(expected_version);
+    launcher.executable(latest_executable);
+    EXPECT_NO_THROW(launcher.run_apply_latest());
+    EXPECT_EQ("ok", launcher.wait_for_output());
+    internal::sentinel sentinel2(latest_directory);
+    EXPECT_TRUE(sentinel2.read());
+    EXPECT_EQ(expected_version, sentinel2.version());
+}
