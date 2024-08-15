@@ -34,9 +34,8 @@ inline std::filesystem::path current_process_executable()
 }
 
 // Starts a process detached.
-// If false is returned the process could not be started.
-// Call GetLastError() for error information.
-inline bool start_process_detached(std::filesystem::path const& executable,
+// May throw an exception if an error occured
+inline void start_process_detached(std::filesystem::path const& executable,
     std::vector<std::string> const& arguments = {})
 {
     STARTUPINFOW StartupInfo;
@@ -63,9 +62,7 @@ inline bool start_process_detached(std::filesystem::path const& executable,
         &ProcessInfo);
     if (result == 0) {
         winrt::throw_last_error();
-        return false;
     }
-    return true;
 }
 
 inline DWORD WaitForProcessExit(

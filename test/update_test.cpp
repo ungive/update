@@ -552,27 +552,26 @@ public:
             m_version.string() };
     }
 
-    bool run_print(std::string const& text) const
+    void run_print(std::string const& text) const
     {
-        return internal::win::start_process_detached(
-            executable(), print_args(text));
+        internal::win::start_process_detached(executable(), print_args(text));
     }
 
-    bool run_apply_latest() const
+    void run_apply_latest() const
     {
-        return internal::win::start_process_detached(
+        internal::win::start_process_detached(
             executable(), apply_latest_args());
     }
 
-    bool run_apply_and_start_latest() const
+    void run_apply_and_start_latest() const
     {
-        return internal::win::start_process_detached(
+        internal::win::start_process_detached(
             executable(), apply_and_start_latest_args());
     }
 
-    bool run_sleep(std::chrono::milliseconds duration) const
+    void run_sleep(std::chrono::milliseconds duration) const
     {
-        return internal::win::start_process_detached(
+        internal::win::start_process_detached(
             executable(), sleep_args(duration));
     }
 
@@ -684,7 +683,7 @@ TEST(manager, LauncherAppliesLatestAfterLauncherIsManuallyStarted)
     EXPECT_FALSE(
         std::filesystem::exists(updater.working_directory() / "latest"));
     test_launcher launcher(PREVIOUS_VERSION);
-    EXPECT_TRUE(launcher.run_apply_latest());
+    EXPECT_NO_THROW(launcher.run_apply_latest());
     auto output = launcher.wait_for_output();
     EXPECT_EQ("ok", output);
     EXPECT_FALSE(std::filesystem::exists(
@@ -750,7 +749,7 @@ TEST(manager, ExceptionThrownWhenApplyLatestDoesNotKillButLatestHasProcess)
     std::filesystem::copy(process_executable, latest_executable);
     test_launcher launcher(PREVIOUS_VERSION);
     launcher.executable(latest_executable);
-    ASSERT_TRUE(launcher.run_sleep(10s));
+    EXPECT_NO_THROW(launcher.run_sleep(10s));
     // Apply the latest update.
     auto manager = to_manager(updater);
     bool apply_result = false;

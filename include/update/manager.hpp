@@ -244,8 +244,9 @@ public:
             std::filesystem::create_directories(temp_directory);
             auto copied_executable = temp_directory / executable.filename();
             std::filesystem::copy(executable, copied_executable);
-            return internal::win::start_process_detached(
+            internal::win::start_process_detached(
                 copied_executable, launcher_arguments);
+            return true;
         }
         return false;
     }
@@ -300,16 +301,19 @@ public:
     // without applying the latest update or doing any other checks.
     // Call this after having called apply_latest().
     //
-    bool start_latest(std::filesystem::path const& main_executable,
+    // The path to the main executable must be a relative path
+    // which will be resolved in relation to the latest directory.
+    // It must therefore be relative to the root of the application directory.
+    //
+    void start_latest(std::filesystem::path const& main_executable,
         std::vector<std::string> const& main_arguments = {})
     {
-        auto executable = main_executable;
-        if (executable.is_relative()) {
-            auto process = internal::win::current_process_executable();
-            executable = process.parent_path() / executable;
+        if (!main_executable.is_relative()) {
+            throw std::invalid_argument(
+                "the main executable path must be relative");
         }
-        return internal::win::start_process_detached(
-            executable, main_arguments);
+        internal::win::start_process_detached(
+            latest_path() / main_executable, main_arguments);
     }
 
 private:
