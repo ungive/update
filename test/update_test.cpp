@@ -30,6 +30,7 @@ const char* BAD_PUBLIC_KEY = R"key(
 NCowBQYDK2VwAyEAIcbwANvTnDDB6KqmrL64/jEApW41sA//feKQYQMjGeU=
 -----END PUBLIC KEY-----
 )key";
+const char* LATEST_DIRECTORY = "current";
 
 struct downloader_inject : public http_downloader
 {
@@ -638,7 +639,7 @@ int main(int argc, char* argv[])
             ::manager manager(UPDATE_WORKING_DIR, current_version);
             manager.apply_latest();
             test_launcher nested_launcher(current_version);
-            manager.start_latest(nested_launcher.executable(),
+            manager.start_latest(nested_launcher.executable().filename(),
                 nested_launcher.print_args("success"));
             auto output = nested_launcher.wait_for_output();
             internal::write_file(output_file, "start_latest: " + output);
@@ -659,17 +660,18 @@ TEST(manager, OnlyLatestDirectoryExistsAfterApplyLatestIsCalled)
     updater_update_test(updater, "release-1.2.3.txt");
     EXPECT_TRUE(std::filesystem::exists(
         updater.working_directory() / UPDATED_VERSION.string()));
-    EXPECT_FALSE(
-        std::filesystem::exists(updater.working_directory() / "latest"));
+    EXPECT_FALSE(std::filesystem::exists(
+        updater.working_directory() / LATEST_DIRECTORY));
     auto manager = to_manager(updater);
     bool apply_result = false;
     EXPECT_NO_THROW(apply_result = manager.apply_latest());
     EXPECT_TRUE(apply_result);
     EXPECT_FALSE(std::filesystem::exists(
         updater.working_directory() / UPDATED_VERSION.string()));
-    EXPECT_TRUE(
-        std::filesystem::exists(updater.working_directory() / "latest"));
-    internal::sentinel latest_sentinel(updater.working_directory() / "latest");
+    EXPECT_TRUE(std::filesystem::exists(
+        updater.working_directory() / LATEST_DIRECTORY));
+    internal::sentinel latest_sentinel(
+        updater.working_directory() / LATEST_DIRECTORY);
     EXPECT_TRUE(latest_sentinel.read());
     EXPECT_EQ(UPDATED_VERSION, latest_sentinel.version());
 }
@@ -680,17 +682,18 @@ TEST(manager, LauncherAppliesLatestAfterLauncherIsManuallyStarted)
     updater_update_test(updater, "release-1.2.3.txt");
     EXPECT_TRUE(std::filesystem::exists(
         updater.working_directory() / UPDATED_VERSION.string()));
-    EXPECT_FALSE(
-        std::filesystem::exists(updater.working_directory() / "latest"));
+    EXPECT_FALSE(std::filesystem::exists(
+        updater.working_directory() / LATEST_DIRECTORY));
     test_launcher launcher(PREVIOUS_VERSION);
     EXPECT_NO_THROW(launcher.run_apply_latest());
     auto output = launcher.wait_for_output();
     EXPECT_EQ("ok", output);
     EXPECT_FALSE(std::filesystem::exists(
         updater.working_directory() / UPDATED_VERSION.string()));
-    EXPECT_TRUE(
-        std::filesystem::exists(updater.working_directory() / "latest"));
-    internal::sentinel latest_sentinel(updater.working_directory() / "latest");
+    EXPECT_TRUE(std::filesystem::exists(
+        updater.working_directory() / LATEST_DIRECTORY));
+    internal::sentinel latest_sentinel(
+        updater.working_directory() / LATEST_DIRECTORY);
     EXPECT_TRUE(latest_sentinel.read());
     EXPECT_EQ(UPDATED_VERSION, latest_sentinel.version());
 }
@@ -701,8 +704,8 @@ TEST(manager, LauncherIsStartedAndAppliesLatestAfterLaunchLatestIsCalled)
     updater_update_test(updater, "release-1.2.3.txt");
     EXPECT_TRUE(std::filesystem::exists(
         updater.working_directory() / UPDATED_VERSION.string()));
-    EXPECT_FALSE(
-        std::filesystem::exists(updater.working_directory() / "latest"));
+    EXPECT_FALSE(std::filesystem::exists(
+        updater.working_directory() / LATEST_DIRECTORY));
     test_launcher launcher(PREVIOUS_VERSION);
     auto manager = to_manager(updater);
     bool result = false;
@@ -713,9 +716,10 @@ TEST(manager, LauncherIsStartedAndAppliesLatestAfterLaunchLatestIsCalled)
     EXPECT_EQ("ok", output);
     EXPECT_FALSE(std::filesystem::exists(
         updater.working_directory() / UPDATED_VERSION.string()));
-    EXPECT_TRUE(
-        std::filesystem::exists(updater.working_directory() / "latest"));
-    internal::sentinel latest_sentinel(updater.working_directory() / "latest");
+    EXPECT_TRUE(std::filesystem::exists(
+        updater.working_directory() / LATEST_DIRECTORY));
+    internal::sentinel latest_sentinel(
+        updater.working_directory() / LATEST_DIRECTORY);
     EXPECT_TRUE(latest_sentinel.read());
     EXPECT_EQ(UPDATED_VERSION, latest_sentinel.version());
 }
@@ -743,7 +747,7 @@ TEST(manager, ExceptionThrownWhenApplyLatestDoesNotKillButLatestHasProcess)
     updater_update_test(updater, "release-1.2.3.txt");
     // Copy the test executable to the latest directory and make it sleep.
     auto process_executable = internal::win::current_process_executable();
-    auto latest_directory = updater.working_directory() / "latest";
+    auto latest_directory = updater.working_directory() / LATEST_DIRECTORY;
     auto latest_executable = latest_directory / process_executable.filename();
     EXPECT_TRUE(std::filesystem::create_directories(latest_directory));
     std::filesystem::copy(process_executable, latest_executable);
@@ -781,8 +785,8 @@ TEST(manager, LatestIsStartedWhenLauncherAppliesAndStartsLatestUpdate)
     EXPECT_TRUE(result);
     auto output = launcher.wait_for_output();
     EXPECT_EQ("start_latest: success", output);
-    EXPECT_TRUE(std::filesystem::exists(updater.working_directory() / "latest" /
-        process_executable.filename()));
+    EXPECT_TRUE(std::filesystem::exists(updater.working_directory() /
+        LATEST_DIRECTORY / process_executable.filename()));
 }
 
 TEST(manager, LaunchLatestReturnsFalseWhenThereIsNothingToLaunch)
@@ -802,7 +806,8 @@ void manager_launch_latest_return_value_test(
 {
     ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     auto directory = updater.working_directory() /
-        (use_latest_directory_name ? "latest" : existing_version.string());
+        (use_latest_directory_name ? LATEST_DIRECTORY
+                                   : existing_version.string());
     std::filesystem::create_directories(directory);
     internal::sentinel sentinel(directory);
     sentinel.version(existing_version);
