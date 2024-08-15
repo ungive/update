@@ -312,8 +312,15 @@ public:
             throw std::invalid_argument(
                 "the main executable path must be relative");
         }
-        internal::win::start_process_detached(
-            latest_path() / main_executable, main_arguments);
+        if (!std::filesystem::exists(latest_path())) {
+            throw std::runtime_error("there is no latest version installed");
+        }
+        auto executable_path = latest_path() / main_executable;
+        if (!std::filesystem::exists(executable_path)) {
+            throw std::runtime_error("the specified main executable does not "
+                                     "exist in the latest directory");
+        }
+        internal::win::start_process_detached(executable_path, main_arguments);
     }
 
 private:
