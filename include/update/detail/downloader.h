@@ -68,6 +68,7 @@ public:
     // Fails if any of the verification steps failed
     // or if any of the files could not be stored on disk.
     // Returns the downloaded file.
+    // This method is not thread-safe.
     downloaded_file get(std::string const& path = "")
     {
         if (m_base_url.empty()) {
@@ -87,6 +88,16 @@ public:
         }
         return result;
     }
+
+    // Sets the cancellation state for any current or future downloads.
+    // Must be manually reset if downloading should not be cancelled anymore.
+    // Returns the old state value.
+    // This method is thread-safe.
+    bool cancel(bool state) { return m_cancel_all.exchange(state); }
+
+    // Reads the current cancellation state.
+    // This method is thread-safe.
+    bool cancel() const { return m_cancel_all.load(); }
 
 protected:
     // Downloads a file once and returns the local path to it.
@@ -120,9 +131,15 @@ protected:
         auto res = cli.Get(
             m_base_path + path, httplib::Headers(),
             [&](const httplib::Response& response) {
+                if (m_cancel_all.load()) {
+                    return false;
+                }
                 return response.status == httplib::StatusCode::OK_200;
             },
             [&](const char* data, size_t data_length) {
+                if (m_cancel_all.load()) {
+                    return false;
+                }
                 out.write(data, data_length);
                 return !out.fail();
             });
@@ -149,6 +166,7 @@ protected:
     std::unordered_set<std::string> m_additional_files{};
     std::vector<internal::types::verifier_func> m_verification_funcs{};
     std::unordered_map<std::string, downloaded_file> m_downloaded_files{};
+    std::atomic<bool> m_cancel_all{ false };
 };
 
 } // namespace update

@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <memory>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -32,7 +33,8 @@ public:
     updater(std::filesystem::path const& working_directory,
         version_number const& current_version)
         : m_working_directory{ working_directory },
-          m_current_version{ current_version }
+          m_current_version{ current_version },
+          m_downloader{ std::make_shared<http_downloader>() }
     {
     }
 
@@ -85,7 +87,7 @@ public:
             internal::types::verifier_interface, V>::value>::type* = nullptr>
     inline void add_update_verification(V const& verifier)
     {
-        m_downloader.add_verification(verifier);
+        m_downloader->add_verification(verifier);
     }
 
     // Add any number of post-update operations to perform after an update.
@@ -99,6 +101,7 @@ public:
     }
 
     // Perform an update by retrieving the latest release.
+    // This method is not thread-safe.
     update_result update()
     {
         if (!m_latest_retriever_func)
@@ -121,12 +124,22 @@ public:
         if (!std::regex_match(url.url(), url_pattern)) {
             throw std::runtime_error("the download url pattern does not match");
         }
-        m_downloader.base_url(url.base_url());
-        auto latest_release = m_downloader.get(url.filename());
+        m_downloader->base_url(url.base_url());
+        auto latest_release = m_downloader->get(url.filename());
         auto output_directory = extract_archive(version, latest_release.path());
         return update_result(
             update_status::update_downloaded, version, output_directory);
     }
+
+    // Sets the cancellation state for any current or future updates.
+    // Must be manually reset if updates should not be cancelled anymore.
+    // Returns the old state value.
+    // This method is thread-safe.
+    bool cancel(bool state) { return m_downloader->cancel(state); }
+
+    // Reads the current cancellation state.
+    // This method is thread-safe.
+    bool cancel() const { return m_downloader->cancel(); }
 
 private:
     std::filesystem::path extract_archive(
@@ -173,6 +186,7 @@ private:
 
     std::filesystem::path m_working_directory;
     version_number m_current_version;
+    std::shared_ptr<http_downloader> m_downloader;
 
     update::archive_type m_archive_type{ archive_type::unknown };
     std::string m_download_filename_pattern{};
@@ -180,7 +194,6 @@ private:
     internal::types::latest_retriever_func m_latest_retriever_func{};
     std::vector<internal::types::post_update_operation_func>
         m_post_update_operations{};
-    http_downloader m_downloader{};
 };
 
 } // namespace update

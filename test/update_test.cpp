@@ -838,3 +838,10 @@ TEST(manager, LaunchLatestReturnsFalseWhenThereIsAnOlderVersion)
     manager_launch_latest_return_value_test(
         version_number(0, 0, 1), false, true);
 }
+
+TEST(updater, ThrowsExceptionWhenCancelStateIsSetToTrue)
+{
+    ::updater updater = create_updater(PATTERN_ZIP_SUB, PREVIOUS_VERSION);
+    updater.cancel(true);
+    updater_update_test(updater, "release-1.2.3/release-1.2.3.txt", true);
+}
