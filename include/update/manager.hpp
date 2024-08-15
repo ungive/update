@@ -37,6 +37,9 @@ namespace update
 // e.g. an updated version "1.2.6", then if the user had moved the tray icon
 // into the visible area before it would disappear once the update is started.
 // This is often undesirable, therefore the use of a "latest" directory.
+// Windows does not expose any publicly documented API
+// for making a tray icon visible programmatically,
+// so this is a necessary workaround.
 //
 // Any program that uses this library should therefore have two programs:
 // the main executable and an accompanying launcher executable.
