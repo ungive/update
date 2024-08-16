@@ -72,6 +72,15 @@ public:
         write_sentinel_for_current_process();
     }
 
+    // Returns the working directory in which the update manager operates.
+    std::filesystem::path const& working_directory() const
+    {
+        return m_working_directory;
+    }
+
+    // Returns the current version with which the updater was initialized.
+    version_number const& current_version() const { return m_current_version; }
+
     // Returns the name of the latest directory.
     std::string const& latest_directory() const { return m_latest_directory; }
 

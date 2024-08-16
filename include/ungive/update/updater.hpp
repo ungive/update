@@ -19,6 +19,7 @@
 #include "ungive/update/detail/verifiers.h"
 #include "ungive/update/internal/sentinel.h"
 #include "ungive/update/internal/util.h"
+#include "ungive/update/manager.hpp"
 
 #ifdef WIN32
 #include "ungive/update/internal/zip.h"
@@ -30,22 +31,33 @@ namespace ungive::update
 class updater
 {
 public:
-    updater(std::filesystem::path const& working_directory,
-        version_number const& current_version)
-        : m_working_directory{ working_directory },
-          m_current_version{ current_version },
+    // Creates an updater from the given manager.
+    updater(std::shared_ptr<manager> manager)
+        : m_manager{ manager },
           m_downloader{ std::make_shared<http_downloader>() }
     {
     }
 
-    // Returns the working directory in which the update manager operates.
+    // Returns the manager associated with this updater.
+    std::shared_ptr<ungive::update::manager> manager() { return m_manager; }
+
+    // Returns the manager associated with this updater.
+    std::shared_ptr<const ungive::update::manager> manager() const
+    {
+        return m_manager;
+    }
+
+    // Returns the working directory in which the updater operates.
     std::filesystem::path const& working_directory() const
     {
-        return m_working_directory;
+        return m_manager->working_directory();
     }
 
     // Returns the current version with which the updater was initialized.
-    version_number const& current_version() const { return m_current_version; }
+    version_number const& current_version() const
+    {
+        return m_manager->current_version();
+    }
 
     // Set a source from which the latest version is retrieved.
     template <typename L,
@@ -154,10 +166,10 @@ public:
         std::regex filename_pattern(m_download_filename_pattern);
         auto [version, url] = m_latest_retriever_func(filename_pattern);
         check_url(url);
-        if (version == m_current_version) {
+        if (version == m_manager->current_version()) {
             return update_info(state::up_to_date, version, url);
         }
-        if (version < m_current_version) {
+        if (version < m_manager->current_version()) {
             return update_info(state::latest_is_older, version, url);
         }
         return update_info(state::new_version_available, version, url);
@@ -195,7 +207,8 @@ private:
     std::filesystem::path extract_archive(
         version_number const& version, std::string const& archive_path) const
     {
-        auto output_directory = m_working_directory / version.string();
+        auto output_directory =
+            m_manager->working_directory() / version.string();
         if (std::filesystem::exists(output_directory)) {
             std::filesystem::remove_all(output_directory);
         }
@@ -234,8 +247,7 @@ private:
         sentinel.write();
     }
 
-    std::filesystem::path m_working_directory;
-    version_number m_current_version;
+    std::shared_ptr<ungive::update::manager> m_manager;
     std::shared_ptr<http_downloader> m_downloader;
 
     update::archive_type m_archive_type{ archive_type::unknown };
