@@ -8,10 +8,10 @@
 
 #include <yhirose/httplib.h>
 
-#include "update/internal/types.h"
-#include "update/internal/util.h"
+#include "ungive/update/internal/types.h"
+#include "ungive/update/internal/util.h"
 
-namespace update
+namespace ungive::update
 {
 
 // A downloader for files hosted on an HTTP server.
@@ -169,4 +169,4 @@ protected:
     std::atomic<bool> m_cancel_all{ false };
 };
 
-} // namespace update
+} // namespace ungive::update

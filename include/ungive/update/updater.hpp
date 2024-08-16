@@ -12,19 +12,19 @@
 #include <unordered_set>
 #include <vector>
 
-#include "update/detail/common.h"
-#include "update/detail/downloader.h"
-#include "update/detail/github.h"
-#include "update/detail/operations.h"
-#include "update/detail/verifiers.h"
-#include "update/internal/sentinel.h"
-#include "update/internal/util.h"
+#include "ungive/update/detail/common.h"
+#include "ungive/update/detail/downloader.h"
+#include "ungive/update/detail/github.h"
+#include "ungive/update/detail/operations.h"
+#include "ungive/update/detail/verifiers.h"
+#include "ungive/update/internal/sentinel.h"
+#include "ungive/update/internal/util.h"
 
 #ifdef WIN32
-#include "update/internal/zip.h"
+#include "ungive/update/internal/zip.h"
 #endif
 
-namespace update
+namespace ungive::update
 {
 
 class updater
@@ -196,6 +196,6 @@ private:
         m_post_update_operations{};
 };
 
-} // namespace update
+} // namespace ungive::update
 
 #endif // UNGIVE_UPDATE_UPDATER_H_

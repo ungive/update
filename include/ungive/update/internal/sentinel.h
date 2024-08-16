@@ -5,12 +5,12 @@
 #include <sstream>
 #include <string>
 
-#include "update/detail/common.h"
-#include "update/internal/util.h"
+#include "ungive/update/detail/common.h"
+#include "ungive/update/internal/util.h"
 
 #define SENTINEL_FILENAME ".sentinel"
 
-namespace update::internal
+namespace ungive::update::internal
 {
 
 // Returns the name of the file that must be present in the root
@@ -111,6 +111,6 @@ private:
     std::optional<version_number> m_version{};
 };
 
-} // namespace update::internal
+} // namespace ungive::update::internal
 
 #undef SENTINEL_FILENAME

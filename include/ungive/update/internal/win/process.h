@@ -17,13 +17,13 @@
 #include <Psapi.h>
 // #include <tchar.h>
 
-#include "update/internal/util.h"
+#include "ungive/update/internal/util.h"
 
 #pragma comment(lib, "psapi.lib")
 
 #define CLOSE_WAIT_TIMEOUT_MILLIS 2500
 
-namespace update::internal::win
+namespace ungive::update::internal::win
 {
 
 inline std::filesystem::path current_process_executable()
@@ -224,4 +224,4 @@ inline size_t kill_processes(std::filesystem::path path_or_directory)
 
 #undef CLOSE_WAIT_TIMEOUT_MILLIS
 
-} // namespace update::internal::win
+} // namespace ungive::update::internal::win

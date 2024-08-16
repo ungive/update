@@ -4,10 +4,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "update/manager.hpp"
-#include "update/updater.hpp"
+#include "ungive/update/manager.hpp"
+#include "ungive/update/updater.hpp"
 
-using namespace update;
+using namespace ungive::update;
 using namespace std::chrono_literals;
 
 // Used test files:

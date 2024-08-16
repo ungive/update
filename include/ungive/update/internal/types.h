@@ -6,9 +6,9 @@
 #include <unordered_map>
 #include <vector>
 
-#include "update/detail/common.h"
+#include "ungive/update/detail/common.h"
 
-namespace update::internal::types
+namespace ungive::update::internal::types
 {
 
 using verifier_func = std::function<bool(std::string const& path,
@@ -89,4 +89,4 @@ public:
         std::filesystem::path const& extracted_directory) = 0;
 };
 
-} // namespace update::internal::types
+} // namespace ungive::update::internal::types

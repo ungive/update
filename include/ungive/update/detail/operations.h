@@ -4,11 +4,11 @@
 #include <optional>
 #include <string>
 
-#include "update/internal/types.h"
-#include "update/internal/win/startmenu.h"
-#include "update/internal/zip.h"
+#include "ungive/update/internal/types.h"
+#include "ungive/update/internal/win/startmenu.h"
+#include "ungive/update/internal/zip.h"
 
-namespace update::operations
+namespace ungive::update::operations
 {
 class flatten_extracted_directory
     : public internal::types::post_update_operation_interface
@@ -105,4 +105,4 @@ public:
     }
 };
 
-} // namespace update::operations
+} // namespace ungive::update::operations

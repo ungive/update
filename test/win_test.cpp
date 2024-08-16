@@ -1,11 +1,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "update/internal/win/process.h"
-#include "update/internal/win/startmenu.h"
-#include "update/updater.hpp"
+#include "ungive/update/internal/win/process.h"
+#include "ungive/update/internal/win/startmenu.h"
+#include "ungive/update/updater.hpp"
 
-using namespace update;
+using namespace ungive::update;
 
 namespace fs = std::filesystem;
 

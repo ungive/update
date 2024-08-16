@@ -8,7 +8,7 @@
 #include <sstream>
 #include <utility>
 
-namespace update::internal
+namespace ungive::update::internal
 {
 
 // Creates a uniquely-named, temporary directory.
@@ -148,4 +148,4 @@ inline bool is_subpath(
     return mismatch_pair.second == base.end();
 }
 
-} // namespace update::internal
+} // namespace ungive::update::internal

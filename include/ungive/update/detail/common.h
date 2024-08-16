@@ -8,9 +8,9 @@
 #include <string>
 #include <unordered_map>
 
-#include "update/internal/util.h"
+#include "ungive/update/internal/util.h"
 
-namespace update
+namespace ungive::update
 {
 
 // Represents a downloaded file.
@@ -227,4 +227,4 @@ struct update_result
     std::optional<std::filesystem::path> downloaded_directory{};
 };
 
-} // namespace update
+} // namespace ungive::update

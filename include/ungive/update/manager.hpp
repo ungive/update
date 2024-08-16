@@ -7,16 +7,16 @@
 #include <unordered_set>
 #include <utility>
 
-#include "update/detail/common.h"
-#include "update/internal/sentinel.h"
+#include "ungive/update/detail/common.h"
+#include "ungive/update/internal/sentinel.h"
 
 #ifdef WIN32
-#include "update/internal/win/process.h"
+#include "ungive/update/internal/win/process.h"
 #endif
 
 #define DEFAULT_LATEST_DIRECTORY "current"
 
-namespace update
+namespace ungive::update
 {
 
 // Represents a manager for automatic updates.
@@ -386,7 +386,7 @@ private:
     std::string m_latest_directory{ DEFAULT_LATEST_DIRECTORY };
 };
 
-} // namespace update
+} // namespace ungive::update
 
 #undef DEFAULT_LATEST_DIRECTORY
 

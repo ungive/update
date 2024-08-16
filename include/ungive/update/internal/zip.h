@@ -10,7 +10,7 @@
 #include <mz_zip.h>
 #include <mz_zip_rw.h>
 
-namespace update::internal
+namespace ungive::update::internal
 {
 
 // Extracts a ZIP file to a given target directory.
@@ -80,4 +80,4 @@ inline bool flatten_root_directory(std::string const& directory)
     return true;
 }
 
-} // namespace update::internal
+} // namespace ungive::update::internal
