@@ -100,9 +100,49 @@ public:
         m_post_update_operations.push_back(operation);
     }
 
-    // Perform an update by retrieving the latest release.
+    // Perform an update by retrieving the latest version and downloading it.
+    // Returns the directory to which the update has been extracted.
+    std::filesystem::path update()
+    {
+        auto latest = get_latest();
+        switch (latest.state()) {
+        case state::new_version_available:
+            return update(latest.version(), latest.url());
+        case state::up_to_date:
+            throw std::runtime_error("the application is already up to date");
+        case state::latest_is_older:
+            throw std::runtime_error(
+                "the latest version is older than the current version");
+        default:
+            assert(false);
+            throw std::runtime_error("unknown state");
+        }
+    }
+
+    // Perform an update by downloading and extracting from the given URL.
+    // Returns the directory to which the update has been extracted.
     // This method is not thread-safe.
-    update_result update()
+    std::filesystem::path update(
+        version_number const& version, file_url const& url)
+    {
+        check_url(url);
+        m_downloader->base_url(url.base_url());
+        auto latest_release = m_downloader->get(url.filename());
+        return extract_archive(version, latest_release.path());
+    }
+
+    // Perform an update using the return value from get_latest() directly.
+    // Returns the directory to which the update has been extracted.
+    // This method is not thread-safe.
+    std::filesystem::path update(update_info const& info)
+    {
+        return update(info.version(), info.url());
+    }
+
+    // Returns update information for the latest available version
+    // using the configured update source.
+    // Pass the returned value to update() to download the update.
+    update_info get_latest()
     {
         if (!m_latest_retriever_func)
             throw std::runtime_error("missing latest retriever");
@@ -113,22 +153,14 @@ public:
 
         std::regex filename_pattern(m_download_filename_pattern);
         auto [version, url] = m_latest_retriever_func(filename_pattern);
+        check_url(url);
         if (version == m_current_version) {
-            return update_result(update_status::up_to_date, version);
+            return update_info(state::up_to_date, version, url);
         }
         if (version < m_current_version) {
-            return update_result(update_status::latest_is_older, version);
+            return update_info(state::latest_is_older, version, url);
         }
-        assert(std::regex_match(url.filename(), filename_pattern));
-        auto url_pattern = m_download_url_pattern.value();
-        if (!std::regex_match(url.url(), url_pattern)) {
-            throw std::runtime_error("the download url pattern does not match");
-        }
-        m_downloader->base_url(url.base_url());
-        auto latest_release = m_downloader->get(url.filename());
-        auto output_directory = extract_archive(version, latest_release.path());
-        return update_result(
-            update_status::update_downloaded, version, output_directory);
+        return update_info(state::new_version_available, version, url);
     }
 
     // Sets the cancellation state for any current or future updates.
@@ -142,6 +174,24 @@ public:
     bool cancel() const { return m_downloader->cancel(); }
 
 private:
+    void check_url(file_url const& url)
+    {
+        if (m_download_url_pattern.has_value()) {
+            std::regex filename_pattern(m_download_filename_pattern);
+            if (!std::regex_match(url.filename(), filename_pattern)) {
+                throw std::runtime_error(
+                    "the download filename pattern does not match");
+            }
+        }
+        if (m_download_url_pattern.has_value()) {
+            auto url_pattern = m_download_url_pattern.value();
+            if (!std::regex_match(url.url(), url_pattern)) {
+                throw std::runtime_error(
+                    "the download url pattern does not match");
+            }
+        }
+    }
+
     std::filesystem::path extract_archive(
         version_number const& version, std::string const& archive_path) const
     {

@@ -286,16 +286,16 @@ static auto PATTERN_ZIP_SUB = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
 TEST(updater, StatusIsUpToDateWhenVersionIsIdentical)
 {
     ::updater updater = create_updater(PATTERN_ZIP_SUB, UPDATED_VERSION);
-    auto result = updater.update();
-    EXPECT_EQ(update_status::up_to_date, result.status);
+    auto result = updater.get_latest();
+    EXPECT_EQ(state::up_to_date, result.state());
 }
 
 TEST(updater, StatusIsLatestIsOlderWhenVersionIsLower)
 {
     ::updater updater =
         create_updater(PATTERN_ZIP_SUB, version_number(1, 3, 0));
-    auto result = updater.update();
-    EXPECT_EQ(update_status::latest_is_older, result.status);
+    auto result = updater.get_latest();
+    EXPECT_EQ(state::latest_is_older, result.state());
 }
 
 void write_sentinel(
@@ -316,35 +316,38 @@ std::optional<version_number> read_sentinel(
     return sentinel.version();
 }
 
-std::optional<update_result> updater_update_test(::updater& updater,
+std::optional<std::pair<update_info, std::filesystem::path>>
+updater_update_test(::updater& updater,
     std::filesystem::path const& expected_extracted_file,
     bool should_throw = false)
 {
     std::filesystem::remove_all(updater.working_directory());
-    std::optional<update_result> result;
+    std::optional<std::pair<update_info, std::filesystem::path>> result;
     EXPECT_EQ(std::nullopt, to_manager(updater).latest_available_update());
     if (should_throw) {
-        EXPECT_ANY_THROW(result = updater.update());
+        EXPECT_ANY_THROW(updater.update());
         std::filesystem::remove_all(updater.working_directory());
         return std::nullopt;
     } else {
-        EXPECT_NO_THROW(result = updater.update());
+        std::optional<update_info> info;
+        std::optional<std::filesystem::path> path;
+        EXPECT_NO_THROW(info = updater.get_latest());
+        EXPECT_NO_THROW(path = updater.update(info.value()));
+        result = std::make_pair(info.value(), path.value());
     }
     EXPECT_TRUE(result.has_value());
-    EXPECT_EQ(update_status::update_downloaded, result->status);
-    EXPECT_TRUE(result->downloaded_directory.has_value());
-    EXPECT_EQ(updater.working_directory() / result->version.string(),
-        result->downloaded_directory);
-    EXPECT_TRUE(std::filesystem::exists(result->downloaded_directory.value()));
-    EXPECT_TRUE(std::filesystem::exists(
-        result->downloaded_directory.value() / expected_extracted_file));
+    EXPECT_EQ(state::new_version_available, result->first.state());
+    EXPECT_EQ(updater.working_directory() / result->first.version().string(),
+        result->second);
+    EXPECT_TRUE(std::filesystem::exists(result->second));
+    EXPECT_TRUE(
+        std::filesystem::exists(result->second / expected_extracted_file));
     auto latest_installed = to_manager(updater).latest_available_update();
     EXPECT_TRUE(latest_installed.has_value());
-    EXPECT_EQ(version_number(1, 2, 3), result->version);
-    EXPECT_EQ(result->version, latest_installed->first);
-    EXPECT_EQ(result->downloaded_directory, latest_installed->second);
-    EXPECT_EQ(
-        result->version, read_sentinel(result->downloaded_directory.value()));
+    EXPECT_EQ(version_number(1, 2, 3), result->first.version());
+    EXPECT_EQ(result->first.version(), latest_installed->first);
+    EXPECT_EQ(result->second, latest_installed->second);
+    EXPECT_EQ(result->first.version(), read_sentinel(result->second));
     return result;
 }
 
@@ -388,8 +391,7 @@ TEST(updater, LatestAvailableUpdateReturnsNothingWhenSentinelMismatches)
 {
     ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     auto result = updater_update_test(updater, "release-1.2.3.txt");
-    write_sentinel(
-        result->downloaded_directory.value(), version_number(1, 3, 0));
+    write_sentinel(result->second, version_number(1, 3, 0));
     auto latest = to_manager(updater).latest_available_update();
     EXPECT_EQ(std::nullopt, latest);
 }
@@ -447,13 +449,14 @@ void updater_prune_preparation(::updater& updater)
         PREVIOUS_VERSION);
     auto latest_installed = to_manager(updater).latest_available_update();
     EXPECT_EQ(PREVIOUS_VERSION, latest_installed->first);
-    auto result = updater.update();
+    auto info = updater.get_latest();
+    auto path = updater.update(info);
     latest_installed = to_manager(updater).latest_available_update();
     ASSERT_TRUE(latest_installed.has_value());
-    EXPECT_EQ(UPDATED_VERSION, result.version);
+    EXPECT_EQ(UPDATED_VERSION, info.version());
     auto sentinel_version =
-        read_sentinel(updater.working_directory() / result.version.string());
-    EXPECT_EQ(result.version, sentinel_version);
+        read_sentinel(updater.working_directory() / info.version().string());
+    EXPECT_EQ(info.version(), sentinel_version);
 }
 
 TEST(updater, OldVersionIsDeletedAfterPruneIsCalledWithNewVersion)

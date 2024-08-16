@@ -192,11 +192,11 @@ private:
     std::string m_url{};
 };
 
-enum class update_status
+enum class state
 {
     up_to_date,
     latest_is_older,
-    update_downloaded,
+    new_version_available,
 };
 
 enum class archive_type
@@ -206,25 +206,23 @@ enum class archive_type
     mac_disk_image,
 };
 
-struct update_result
+struct update_info
 {
-    update_result(update_status status, version_number const& version)
-        : status{ status }, version{ version }
+    update_info(state state, version_number const& version, file_url const& url)
+        : m_state{ state }, m_version{ version }, m_url{ url }
     {
-        assert(status != update_status::update_downloaded);
     }
 
-    update_result(update_status status, version_number const& version,
-        std::filesystem::path downloaded_directory)
-        : status{ status }, version{ version },
-          downloaded_directory{ downloaded_directory }
-    {
-        assert(status == update_status::update_downloaded);
-    }
+    state state() const { return m_state; }
 
-    update_status status;
-    version_number version;
-    std::optional<std::filesystem::path> downloaded_directory{};
+    version_number const& version() const { return m_version; }
+
+    file_url const& url() const { return m_url; }
+
+private:
+    ungive::update::state m_state;
+    version_number m_version;
+    file_url m_url;
 };
 
 } // namespace ungive::update
