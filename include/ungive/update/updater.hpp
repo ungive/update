@@ -163,9 +163,19 @@ public:
         if (!m_download_url_pattern.has_value())
             throw std::runtime_error("missing download url pattern");
 
+        // Validate the URL.
         std::regex filename_pattern(m_download_filename_pattern);
         auto [version, url] = m_latest_retriever_func(filename_pattern);
         check_url(url);
+
+        // Check if the latest installed version is the new version,
+        // such that we don't install the latest update again.
+        auto latest_installed = m_manager->latest_available_update();
+        if (latest_installed.has_value() &&
+            version == latest_installed->first) {
+            return update_info(state::update_already_installed, version, url);
+        }
+        // Otherwise compare it to the current version.
         if (version == m_manager->current_version()) {
             return update_info(state::up_to_date, version, url);
         }

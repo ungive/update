@@ -195,8 +195,9 @@ private:
 enum class state
 {
     up_to_date,
-    latest_is_older,
+    update_already_installed,
     new_version_available,
+    latest_is_older,
 };
 
 enum class archive_type

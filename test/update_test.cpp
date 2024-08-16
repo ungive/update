@@ -253,7 +253,9 @@ static auto PATTERN_ZIP_SUB = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
     std::string const& release_filename_pattern = PATTERN_ZIP,
     version_number const& current_version = PREVIOUS_VERSION)
 {
-    ::updater updater(UPDATE_WORKING_DIR, current_version);
+    auto manager =
+        std::make_shared<::manager>(UPDATE_WORKING_DIR, current_version);
+    ::updater updater(manager);
     updater.update_source(mock_github_api_latest_retriever());
     updater.download_filename_pattern(release_filename_pattern);
     updater.archive_type(archive_type::zip_archive);
@@ -900,4 +902,12 @@ TEST(manager, SentinelIsOverwrittenWhenManagerIsCreatedAndSentinelHasBadVersion)
     internal::sentinel sentinel2(latest_directory);
     EXPECT_TRUE(sentinel2.read());
     EXPECT_EQ(expected_version, sentinel2.version());
+}
+
+TEST(updater, StateIsAlreadyInstalledWhenAttemptingToDownloadAnUpdateAgain)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater_update_test(updater, "release-1.2.3.txt", false);
+    auto result = updater.get_latest();
+    EXPECT_EQ(state::update_already_installed, result.state());
 }
