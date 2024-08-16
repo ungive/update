@@ -17,7 +17,7 @@ public:
     // Flattens the extracted directory if the ZIP file contains
     // a single directory. Optionally fails if flattening could not occur
     // because the root of the ZIP file contained other files or no directory.
-    flatten_extracted_directory(bool fail_if_not_flattened = true)
+    flatten_extracted_directory(bool fail_if_not_flattened = false)
         : m_fail_if_not_flattened{ fail_if_not_flattened }
     {
     }
