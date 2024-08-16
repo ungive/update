@@ -55,6 +55,16 @@ class manager
 {
 public:
     manager(std::filesystem::path const& working_directory,
+        version_number const& current_version,
+        std::string const& latest_directory_name)
+        : m_working_directory{ working_directory },
+          m_current_version{ current_version },
+          m_latest_directory{ latest_directory_name }
+    {
+        write_sentinel_for_current_process();
+    }
+
+    manager(std::filesystem::path const& working_directory,
         version_number const& current_version)
         : m_working_directory{ working_directory },
           m_current_version{ current_version }
@@ -64,13 +74,6 @@ public:
 
     // Returns the name of the latest directory.
     std::string const& latest_directory() const { return m_latest_directory; }
-
-    // Sets the latest directory to a custom name.
-    // Note that this method must be called before calling any other methods.
-    void latest_directory(std::string const& name)
-    {
-        m_latest_directory = name;
-    }
 
     // Returns the latest installed version in the manager's working directory,
     // excluding the version that might be present in the "latest" directory.
@@ -348,12 +351,12 @@ private:
         }
     }
 
-    inline std::filesystem::path latest_path()
+    inline std::filesystem::path latest_path() const
     {
         return m_working_directory / m_latest_directory;
     }
 
-    void write_sentinel_for_current_process()
+    void write_sentinel_for_current_process() const
     {
         auto latest = latest_path();
         if (!std::filesystem::exists(latest)) {
