@@ -33,6 +33,31 @@ inline std::filesystem::path current_process_executable()
     return executable_path;
 }
 
+// Throws the last error that occured in the Windows library
+// and wraps any HRESULT error into a standard library error,
+// such that users of the library won't accidentally not catch
+// any exceptions caused by Windows library functions.
+inline void throw_last_error()
+{
+    try {
+        winrt::throw_last_error();
+    }
+    catch (winrt::hresult_error const& err) {
+        // Any HRESULT error is wrapped in a runtime error type.
+        throw std::runtime_error(winrt::to_string(err.message()) + " (" +
+            std::to_string(err.code()) + ")");
+    }
+    catch (std::exception const& err) {
+        // Any standard library exception is simply rethrown.
+        throw err;
+    }
+    catch (...) {
+        // Any other type that is not understood
+        // must also throw a standard exception error type.
+        throw std::runtime_error("an unknown error occured");
+    }
+}
+
 // Starts a process detached.
 // May throw an exception if an error occured
 inline void start_process_detached(std::filesystem::path const& executable,
@@ -61,7 +86,7 @@ inline void start_process_detached(std::filesystem::path const& executable,
         parent_path.has_value() ? parent_path->c_str() : NULL, &StartupInfo,
         &ProcessInfo);
     if (result == 0) {
-        winrt::throw_last_error();
+        throw_last_error();
     }
 }
 
@@ -70,7 +95,7 @@ inline DWORD WaitForProcessExit(
 {
     HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, pid);
     if (process == NULL)
-        winrt::throw_last_error();
+        throw_last_error();
     DWORD ret = WaitForSingleObject(process, timeoutMillis);
     CloseHandle(process);
     return ret;
@@ -80,10 +105,10 @@ inline BOOL CALLBACK CloseWindowsProc(HWND hwnd, LPARAM lParam)
 {
     DWORD processId;
     if (GetWindowThreadProcessId(hwnd, &processId) == 0)
-        winrt::throw_last_error();
+        throw_last_error();
     if (lParam == processId) {
         if (PostMessage(hwnd, WM_CLOSE, 0, 0) == 0)
-            winrt::throw_last_error();
+            throw_last_error();
     }
     return TRUE;
 }
@@ -92,7 +117,7 @@ inline DWORD close_pids_and_wait_for_exit(std::vector<DWORD> const& pids)
 {
     for (auto const& pid : pids) {
         if (EnumWindows(&CloseWindowsProc, pid) == NULL) {
-            winrt::throw_last_error();
+            throw_last_error();
         }
     }
 
@@ -101,7 +126,7 @@ inline DWORD close_pids_and_wait_for_exit(std::vector<DWORD> const& pids)
         auto code = WaitForProcessExit(pid);
         if (code != WAIT_OBJECT_0) {
             if (code == WAIT_FAILED) {
-                winrt::throw_last_error();
+                throw_last_error();
             }
             return code;
         }
@@ -129,7 +154,7 @@ static std::vector<DWORD> get_running_pids(
     DWORD processes[PROCESS_BUFFER_SIZE];
     DWORD ps_size;
     if (!EnumProcesses(processes, sizeof(processes), &ps_size)) {
-        winrt::throw_last_error();
+        throw_last_error();
     }
 
     DWORD count = ps_size / sizeof(DWORD);
