@@ -280,11 +280,6 @@ static auto PATTERN_ZIP_SUB = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
     return internal_create_updater(release_filename_pattern, current_version);
 }
 
-::manager to_manager(::updater const& updater)
-{
-    return ::manager(updater.working_directory(), updater.current_version());
-}
-
 TEST(updater, StatusIsUpToDateWhenVersionIsIdentical)
 {
     ::updater updater = create_updater(PATTERN_ZIP_SUB, UPDATED_VERSION);
@@ -323,12 +318,10 @@ updater_update_test(::updater& updater,
     std::filesystem::path const& expected_extracted_file,
     bool should_throw = false)
 {
-    std::filesystem::remove_all(updater.working_directory());
     std::optional<std::pair<update_info, std::filesystem::path>> result;
-    EXPECT_EQ(std::nullopt, to_manager(updater).latest_available_update());
+    EXPECT_EQ(std::nullopt, updater.manager()->latest_available_update());
     if (should_throw) {
         EXPECT_ANY_THROW(updater.update());
-        std::filesystem::remove_all(updater.working_directory());
         return std::nullopt;
     } else {
         std::optional<update_info> info;
@@ -344,7 +337,7 @@ updater_update_test(::updater& updater,
     EXPECT_TRUE(std::filesystem::exists(result->second));
     EXPECT_TRUE(
         std::filesystem::exists(result->second / expected_extracted_file));
-    auto latest_installed = to_manager(updater).latest_available_update();
+    auto latest_installed = updater.manager()->latest_available_update();
     EXPECT_TRUE(latest_installed.has_value());
     EXPECT_EQ(version_number(1, 2, 3), result->first.version());
     EXPECT_EQ(result->first.version(), latest_installed->first);
@@ -394,7 +387,7 @@ TEST(updater, LatestAvailableUpdateReturnsNothingWhenSentinelMismatches)
     ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     auto result = updater_update_test(updater, "release-1.2.3.txt");
     write_sentinel(result->second, version_number(1, 3, 0));
-    auto latest = to_manager(updater).latest_available_update();
+    auto latest = updater.manager()->latest_available_update();
     EXPECT_EQ(std::nullopt, latest);
 }
 
@@ -444,16 +437,15 @@ TEST(updater, StartMenuShortcutChangedWhenItExistedAndItIsUpdated)
 
 void updater_prune_preparation(::updater& updater)
 {
-    std::filesystem::remove_all(updater.working_directory());
     std::filesystem::create_directories(updater.working_directory());
     // Pretend there is an older version available.
     write_sentinel(updater.working_directory() / PREVIOUS_VERSION.string(),
         PREVIOUS_VERSION);
-    auto latest_installed = to_manager(updater).latest_available_update();
+    auto latest_installed = updater.manager()->latest_available_update();
     EXPECT_EQ(PREVIOUS_VERSION, latest_installed->first);
     auto info = updater.get_latest();
     auto path = updater.update(info);
-    latest_installed = to_manager(updater).latest_available_update();
+    latest_installed = updater.manager()->latest_available_update();
     ASSERT_TRUE(latest_installed.has_value());
     EXPECT_EQ(UPDATED_VERSION, info.version());
     auto sentinel_version =
@@ -463,11 +455,15 @@ void updater_prune_preparation(::updater& updater)
 
 TEST(updater, OldVersionIsDeletedAfterPruneIsCalledWithNewVersion)
 {
-    ::updater updater = create_updater();
-    updater_prune_preparation(updater);
+    {
+        // Must be in its own scope, such that the lock file is destroyed
+        // before recreating the updater a second time below.
+        ::updater updater = create_updater();
+        updater_prune_preparation(updater);
+    }
     // Recreate the updater since the preparation step installed an update.
-    updater = recreate_updater(PATTERN_ZIP, UPDATED_VERSION);
-    to_manager(updater).prune();
+    ::updater updater = recreate_updater(PATTERN_ZIP, UPDATED_VERSION);
+    updater.manager()->prune();
     EXPECT_FALSE(
         read_sentinel(updater.working_directory() / PREVIOUS_VERSION.string())
             .has_value());
@@ -480,7 +476,7 @@ TEST(updater, OldVersionStillExistsAfterPruneIsCalledWithOldVersion)
 {
     ::updater updater = create_updater();
     updater_prune_preparation(updater);
-    to_manager(updater).prune();
+    updater.manager()->prune();
     EXPECT_TRUE(
         read_sentinel(updater.working_directory() / PREVIOUS_VERSION.string())
             .has_value());
@@ -667,9 +663,9 @@ TEST(manager, OnlyLatestDirectoryExistsAfterApplyLatestIsCalled)
         updater.working_directory() / UPDATED_VERSION.string()));
     EXPECT_FALSE(std::filesystem::exists(
         updater.working_directory() / LATEST_DIRECTORY));
-    auto manager = to_manager(updater);
+    auto manager = updater.manager();
     std::optional<version_number> apply_result;
-    EXPECT_NO_THROW(apply_result = manager.apply_latest());
+    EXPECT_NO_THROW(apply_result = manager->apply_latest());
     EXPECT_EQ(UPDATED_VERSION, apply_result);
     EXPECT_FALSE(std::filesystem::exists(
         updater.working_directory() / UPDATED_VERSION.string()));
@@ -689,6 +685,7 @@ TEST(manager, LauncherAppliesLatestAfterLauncherIsManuallyStarted)
         updater.working_directory() / UPDATED_VERSION.string()));
     EXPECT_FALSE(std::filesystem::exists(
         updater.working_directory() / LATEST_DIRECTORY));
+    updater.manager()->release_lock();
     test_launcher launcher(PREVIOUS_VERSION);
     EXPECT_NO_THROW(launcher.run_apply_latest());
     auto output = launcher.wait_for_output();
@@ -712,9 +709,9 @@ TEST(manager, LauncherIsStartedAndAppliesLatestAfterLaunchLatestIsCalled)
     EXPECT_FALSE(std::filesystem::exists(
         updater.working_directory() / LATEST_DIRECTORY));
     test_launcher launcher(PREVIOUS_VERSION);
-    auto manager = to_manager(updater);
+    auto manager = updater.manager();
     bool result = false;
-    EXPECT_NO_THROW(result = manager.launch_latest(
+    EXPECT_NO_THROW(result = manager->launch_latest(
                         launcher.executable(), launcher.apply_latest_args()));
     EXPECT_TRUE(result);
     auto output = launcher.wait_for_output();
@@ -735,9 +732,9 @@ TEST(manager, LauncherIsStartedWhenLauncherPathIsRelativeToTestExecutable)
     ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     updater_update_test(updater, "release-1.2.3.txt");
     test_launcher launcher(PREVIOUS_VERSION);
-    auto manager = to_manager(updater);
+    auto manager = updater.manager();
     bool result = false;
-    EXPECT_NO_THROW(result = manager.launch_latest(
+    EXPECT_NO_THROW(result = manager->launch_latest(
                         std::filesystem::relative(launcher.executable(),
                             process_executable.parent_path()),
                         launcher.apply_latest_args()));
@@ -760,10 +757,10 @@ TEST(manager, ExceptionThrownWhenApplyLatestDoesNotKillButLatestHasProcess)
     launcher.executable(latest_executable);
     EXPECT_NO_THROW(launcher.run_sleep(10s));
     // Apply the latest update.
-    auto manager = to_manager(updater);
+    auto manager = updater.manager();
     std::optional<version_number> apply_result{};
     // Don't kill processes for this test (false).
-    EXPECT_ANY_THROW(apply_result = manager.apply_latest(false));
+    EXPECT_ANY_THROW(apply_result = manager->apply_latest(false));
     EXPECT_EQ(std::nullopt, apply_result);
     // Check that the process exits properly by having output.
     auto output = launcher.wait_for_output(15s);
@@ -783,9 +780,9 @@ TEST(manager, LatestIsStartedWhenLauncherAppliesAndStartsLatestUpdate)
     // Now try starting the executable by first applying the update
     // with the launcher and then starting the executable with the launcher,
     // which should now be in the latest directory.
-    auto manager = to_manager(updater);
+    auto manager = updater.manager();
     bool result = false;
-    EXPECT_NO_THROW(result = manager.launch_latest(launcher.executable(),
+    EXPECT_NO_THROW(result = manager->launch_latest(launcher.executable(),
                         launcher.apply_and_start_latest_args()));
     EXPECT_TRUE(result);
     auto output = launcher.wait_for_output();
@@ -797,10 +794,10 @@ TEST(manager, LatestIsStartedWhenLauncherAppliesAndStartsLatestUpdate)
 TEST(manager, LaunchLatestReturnsFalseWhenThereIsNothingToLaunch)
 {
     ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
-    auto manager = to_manager(updater);
+    auto manager = updater.manager();
     bool result = false;
     test_launcher launcher(PREVIOUS_VERSION);
-    EXPECT_NO_THROW(result = manager.launch_latest(
+    EXPECT_NO_THROW(result = manager->launch_latest(
                         launcher.executable(), launcher.print_args("ok")));
     EXPECT_FALSE(result);
 }
@@ -817,10 +814,10 @@ void manager_launch_latest_return_value_test(
     internal::sentinel sentinel(directory);
     sentinel.version(existing_version);
     sentinel.write();
-    auto manager = to_manager(updater);
+    auto manager = updater.manager();
     bool result = false;
     test_launcher launcher(PREVIOUS_VERSION);
-    EXPECT_NO_THROW(result = manager.launch_latest(launcher.executable(),
+    EXPECT_NO_THROW(result = manager->launch_latest(launcher.executable(),
                         launcher.print_args("launched")));
     EXPECT_EQ(return_value, result);
     if (result) {
@@ -911,3 +908,9 @@ TEST(updater, StateIsAlreadyInstalledWhenAttemptingToDownloadAnUpdateAgain)
     auto result = updater.get_latest();
     EXPECT_EQ(state::update_already_installed, result.state());
 }
+
+// TEST(updater,
+// CreatingASecondManagerFailsWhenAnotherManagerHoldsTheUpdateLock)
+// {
+
+// }

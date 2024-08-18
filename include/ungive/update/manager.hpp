@@ -11,10 +11,13 @@
 #include "ungive/update/internal/sentinel.h"
 
 #ifdef WIN32
+#include "ungive/update/internal/win/lock.h"
 #include "ungive/update/internal/win/process.h"
+
 #endif
 
 #define DEFAULT_LATEST_DIRECTORY "current"
+#define UPDATE_LOCK_FILENAME "update.lock"
 
 namespace ungive::update
 {
@@ -54,6 +57,9 @@ namespace ungive::update
 class manager
 {
 public:
+    // Creates a new manager instance.
+    // May throw an exception if the update lock in the working directory
+    // could not be acquired.
     manager(std::filesystem::path const& working_directory,
         version_number const& current_version,
         std::string const& latest_directory_name)
@@ -61,15 +67,17 @@ public:
           m_current_version{ current_version },
           m_latest_directory{ latest_directory_name }
     {
+        acquire_lock();
         write_sentinel_for_current_process();
     }
 
+    // Creates a new manager instance.
+    // May throw an exception if the update lock in the working directory
+    // could not be acquired.
     manager(std::filesystem::path const& working_directory,
         version_number const& current_version)
-        : m_working_directory{ working_directory },
-          m_current_version{ current_version }
+        : manager(working_directory, current_version, DEFAULT_LATEST_DIRECTORY)
     {
-        write_sentinel_for_current_process();
     }
 
     // Returns the working directory in which the update manager operates.
@@ -88,8 +96,10 @@ public:
     // excluding the version that might be present in the "latest" directory.
     // May throw an exception if any error occurs.
     std::optional<std::pair<version_number, std::filesystem::path>>
-    latest_available_update() const
+    latest_available_update()
     {
+        acquire_lock();
+
         std::filesystem::create_directories(m_working_directory);
         auto it = std::filesystem::directory_iterator(m_working_directory);
         std::optional<std::pair<version_number, std::filesystem::path>> result;
@@ -136,9 +146,12 @@ public:
     // and the application should not launch any new versions anymore.
     // Do not call this while an update is in progress.
     // May throw an exception if any error occurs.
-    void unlink() const
+    void unlink()
     {
+        acquire_lock();
+
         std::unordered_set<std::filesystem::path> exclude_directories;
+        exclude_directories.insert(UPDATE_LOCK_FILENAME);
         // Exclude the directory in which the current process is executing.
         // Other than that we don't exclude any other directories.
         auto process = internal::win::current_process_executable();
@@ -160,7 +173,10 @@ public:
     // May throw an exception if any error occurs.
     void prune()
     {
+        acquire_lock();
+
         std::unordered_set<std::filesystem::path> exclude_directories;
+        exclude_directories.insert(UPDATE_LOCK_FILENAME);
         exclude_directories.insert(m_latest_directory);
         exclude_directories.insert(m_current_version.string());
         auto latest_installed = latest_available_update();
@@ -215,12 +231,19 @@ public:
     //
     // May throw an exception if any error occurs.
     //
+    // Calling this method releases the update lock.
+    // If the manager is to be used again, the lock must be reacquired.
+    // The lock is released such that the launched process
+    // can acquire it and manage updates.
+    //
     bool launch_latest(std::filesystem::path const& launcher_executable,
         std::vector<std::string> const& launcher_arguments = {})
     {
         auto process = internal::win::current_process_executable();
         auto latest = internal::sentinel(latest_path());
         auto update = latest_available_update();
+
+        release_lock();
 
         bool is_process_latest = internal::is_subpath(process, latest_path());
         bool have_latest = latest.read();
@@ -282,6 +305,8 @@ public:
     //
     std::optional<version_number> apply_latest(bool kill_processes = true)
     {
+        acquire_lock();
+
         auto latest_directory = latest_path();
         auto latest = internal::sentinel(latest_directory);
         auto update = latest_available_update();
@@ -318,9 +343,16 @@ public:
     // which will be resolved in relation to the latest directory.
     // It must therefore be relative to the root of the application directory.
     //
+    // Calling this method releases the update lock.
+    // If the manager is to be used again, the lock must be reacquired.
+    // The lock is released such that the launched process
+    // can acquire it and manage updates.
+    //
     void start_latest(std::filesystem::path const& main_executable,
         std::vector<std::string> const& main_arguments = {})
     {
+        release_lock();
+
         if (!main_executable.is_relative()) {
             throw std::invalid_argument(
                 "the main executable path must be relative");
@@ -336,6 +368,34 @@ public:
         internal::win::start_process_detached(executable_path, main_arguments);
     }
 
+    // Acquires the update lock in the working directory of the manager
+    // or returns if the lock is already acquired.
+    void acquire_lock()
+    {
+        if (m_update_lock != nullptr) {
+            return;
+        }
+        try {
+            m_update_lock = std::make_unique<internal::win::lock_file>(
+                m_working_directory / UPDATE_LOCK_FILENAME);
+        }
+        catch (std::exception const& err) {
+            throw std::runtime_error(
+                "failed to acquire update lock: " + std::string(err.what()));
+        }
+    }
+
+    // Releases the lock that was acquired when creating the manager instance.
+    // The manager is left in a dirty state and may not be used anymore
+    // until the lock has been acquired again with acquire_lock().
+    void release_lock()
+    {
+        if (m_update_lock != nullptr) {
+            m_update_lock.reset();
+            m_update_lock = nullptr;
+        }
+    }
+
 private:
     void unlink_files(
         std::unordered_set<std::filesystem::path> excluded = {}) const
@@ -344,18 +404,18 @@ private:
         auto it = std::filesystem::directory_iterator(m_working_directory);
         std::optional<std::pair<version_number, std::filesystem::path>> result;
         for (auto const& entry : it) {
-            // Kill any processes that might live in these directories.
-            // This might be inefficient in a loop, but in practice
-            // there won't be many files in the working directory.
-            internal::win::kill_processes(entry.path());
-            if (!entry.is_directory() || !entry.path().has_filename()) {
-                std::filesystem::remove_all(entry.path());
+            if (!entry.path().has_filename()) {
                 continue;
             }
             auto filename = entry.path().filename().string();
             if (excluded.find(filename) != excluded.end()) {
                 continue;
             }
+            // Kill any processes that might live in these directories.
+            // This might be inefficient in a loop, but in practice
+            // there won't be many files in the working directory.
+            internal::win::kill_processes(entry.path());
+            // Remove all files.
             std::filesystem::remove_all(entry.path());
         }
     }
@@ -391,12 +451,14 @@ private:
 
     std::filesystem::path m_working_directory;
     version_number m_current_version;
+    std::string m_latest_directory;
 
-    std::string m_latest_directory{ DEFAULT_LATEST_DIRECTORY };
+    std::unique_ptr<internal::win::lock_file> m_update_lock{ nullptr };
 };
 
 } // namespace ungive::update
 
 #undef DEFAULT_LATEST_DIRECTORY
+#undef UPDATE_LOCK_FILENAME
 
 #endif // UNGIVE_UPDATE_MANAGER_H_
