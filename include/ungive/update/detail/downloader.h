@@ -37,9 +37,15 @@ public:
         m_host = "";
         m_base_path = "";
         m_base_url = "";
-        if (base_url.rfind("https", 0) != 0) {
-            throw std::invalid_argument("the base url must be a HTTPS url");
+#ifdef LIBUPDATE_ALLOW_INSECURE_HTTP
+        if (base_url.rfind("http", 0) != 0) {
+            throw std::invalid_argument("the base url must be an HTTP url");
         }
+#else
+        if (base_url.rfind("https", 0) != 0) {
+            throw std::invalid_argument("the base url must be an HTTPS url");
+        }
+#endif
         m_base_url = base_url;
         auto p = internal::split_host_path(base_url);
         m_host = p.first;
