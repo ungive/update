@@ -16,6 +16,7 @@
 #include "ungive/update/detail/downloader.h"
 #include "ungive/update/detail/github.h"
 #include "ungive/update/detail/operations.h"
+#include "ungive/update/detail/types.h"
 #include "ungive/update/detail/verifiers.h"
 #include "ungive/update/internal/sentinel.h"
 #include "ungive/update/internal/util.h"
@@ -61,9 +62,8 @@ public:
 
     // Set a source from which the latest version is retrieved.
     template <typename L,
-        typename std::enable_if<std::is_base_of<
-            internal::types::latest_retriever_interface, L>::value>::type* =
-            nullptr>
+        typename std::enable_if<std::is_base_of<types::latest_retriever,
+            L>::value>::type* = nullptr>
     inline void update_source(L const& latest_retriever)
     {
         m_latest_retriever_func = latest_retriever;
@@ -95,8 +95,8 @@ public:
 
     // Add any number of verification steps for downloaded update files.
     template <typename V,
-        typename std::enable_if<std::is_base_of<
-            internal::types::verifier_interface, V>::value>::type* = nullptr>
+        typename std::enable_if<
+            std::is_base_of<types::verifier, V>::value>::type* = nullptr>
     inline void add_update_verification(V const& verifier)
     {
         m_downloader->add_verification(verifier);

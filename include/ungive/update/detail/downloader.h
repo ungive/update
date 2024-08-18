@@ -57,8 +57,8 @@ public:
 
     // Adds a verification step for each download that is made with get().
     template <typename V,
-        typename std::enable_if<std::is_base_of<
-            internal::types::verifier_interface, V>::value>::type* = nullptr>
+        typename std::enable_if<
+            std::is_base_of<types::verifier, V>::value>::type* = nullptr>
     void add_verification(V const& verifier)
     {
         m_verification_funcs.push_back(verifier);

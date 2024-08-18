@@ -11,8 +11,7 @@
 
 namespace ungive::update
 {
-struct github_api_latest_extractor
-    : public internal::types::latest_extractor_interface
+struct github_api_latest_extractor : public types::latest_extractor
 {
     github_api_latest_extractor(std::regex release_filename_pattern)
         : m_release_filename_pattern{ release_filename_pattern }
@@ -44,8 +43,7 @@ private:
     std::regex m_release_filename_pattern;
 };
 
-class github_api_latest_retriever
-    : public internal::types::latest_retriever_interface
+class github_api_latest_retriever : public types::latest_retriever
 {
 public:
     github_api_latest_retriever(
