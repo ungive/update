@@ -909,8 +909,21 @@ TEST(updater, StateIsAlreadyInstalledWhenAttemptingToDownloadAnUpdateAgain)
     EXPECT_EQ(state::update_already_installed, result.state());
 }
 
-// TEST(updater,
-// CreatingASecondManagerFailsWhenAnotherManagerHoldsTheUpdateLock)
-// {
+TEST(updater, CreatingASecondManagerFailsWhenAnotherManagerHoldsTheUpdateLock)
+{
+    auto m1 = std::make_shared<::manager>(UPDATE_WORKING_DIR, PREVIOUS_VERSION);
+    std::shared_ptr<::manager> m2;
+    EXPECT_ANY_THROW(
+        m2 = std::make_shared<::manager>(UPDATE_WORKING_DIR, PREVIOUS_VERSION));
+}
 
-// }
+TEST(updater, CreatingASecondManagerWorksWhenOtherManagerIsDestroyed)
+{
+    {
+        auto m1 =
+            std::make_shared<::manager>(UPDATE_WORKING_DIR, PREVIOUS_VERSION);
+    }
+    std::shared_ptr<::manager> m2;
+    EXPECT_NO_THROW(
+        m2 = std::make_shared<::manager>(UPDATE_WORKING_DIR, PREVIOUS_VERSION));
+}
