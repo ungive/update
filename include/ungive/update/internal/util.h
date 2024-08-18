@@ -99,18 +99,13 @@ inline std::pair<std::string, std::string> split_host_path(
     size_t i = 0;
     for (; i < url.size(); i++) {
         char c = url[i];
-        if (c == '/') {
-            if (slash) {
-                // scheme
-                slash = false;
-                continue;
-            }
-            slash = true;
+        if (url[i] == '/' && i + 1 < url.size() && url[i + 1] == '/') {
+            // scheme
+            i += 1;
             continue;
         }
-        if (slash) {
-            // split on previous index
-            i = i - 1;
+        if (url[i] == '/') {
+            // path slash
             break;
         }
     }
