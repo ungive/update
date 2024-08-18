@@ -75,9 +75,9 @@ inline void start_process_detached(std::filesystem::path const& executable,
         parent_path = executable.parent_path();
     }
     std::wostringstream oss;
-    oss << executable.c_str();
+    oss << '"' << executable.c_str() << '"';
     for (auto const& argument : arguments) {
-        oss << " " << argument.c_str();
+        oss << ' ' << '"' << argument.c_str() << '"';
     }
     auto args = oss.str();
 
