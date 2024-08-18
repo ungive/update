@@ -39,7 +39,7 @@ set_property(TARGET libupdate PROPERTY CXX_STANDARD 17)
 set_property(TARGET libupdate PROPERTY CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_definitions(libupdate INTERFACE TEST_BUILD)
+    target_compile_definitions(libupdate INTERFACE LIBUPDATE_TEST_BUILD)
 endif()
 
 if(LIBUPDATE_BUILD_TESTS)
@@ -55,7 +55,7 @@ if(LIBUPDATE_BUILD_TESTS)
     endif()
 
     add_executable(libupdate_test ${TEST_SOURCES})
-    target_compile_definitions(libupdate_test PRIVATE TEST_BUILD)
+    target_compile_definitions(libupdate_test PRIVATE LIBUPDATE_TEST_BUILD)
     target_link_libraries(libupdate_test libupdate)
     target_link_libraries(libupdate_test GTest::gmock_main)
     target_include_directories(

@@ -59,7 +59,7 @@ public:
     {
         const auto url = "https://api.github.com/repos/" + m_username + "/" +
             m_repository + "/releases/latest";
-#ifdef TEST_BUILD
+#ifdef LIBUPDATE_TEST_BUILD
         http_downloader api_downloader(m_injected_api_url.value_or(url));
 #else
         http_downloader api_downloader(url);
@@ -81,7 +81,7 @@ public:
     }
 
 protected:
-#ifdef TEST_BUILD
+#ifdef LIBUPDATE_TEST_BUILD
     inline void inject_api_url(std::string const& url)
     {
         m_injected_api_url = url;
