@@ -66,12 +66,11 @@ inline std::string read_file(
         throw std::runtime_error(
             "file to read does not exist: " + path.string());
     }
-    std::ifstream t(path, mode);
-    t.seekg(0, std::ios::end);
-    size_t size = t.tellg();
+    std::ifstream ifd(path, std::ios::binary | std::ios::ate);
+    int size = ifd.tellg();
+    ifd.seekg(0, std::ios::beg);
     std::string buffer(size, '_');
-    t.seekg(0);
-    t.read(&buffer[0], size);
+    ifd.read(buffer.data(), size);
     return buffer;
 }
 
