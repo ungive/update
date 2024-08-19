@@ -802,11 +802,10 @@ TEST(manager, LaunchLatestReturnsFalseWhenThereIsNothingToLaunch)
     EXPECT_FALSE(result);
 }
 
-void manager_launch_latest_return_value_test(
+void manager_launch_latest_return_value_test(::updater& updater,
     version_number const& existing_version, bool return_value,
     bool use_latest_directory_name = false)
 {
-    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     auto directory = updater.working_directory() /
         (use_latest_directory_name ? LATEST_DIRECTORY
                                    : existing_version.string());
@@ -828,21 +827,27 @@ void manager_launch_latest_return_value_test(
 
 TEST(manager, LaunchLatestReturnsTrueWhenThereIsANewerVersion)
 {
-    manager_launch_latest_return_value_test(UPDATED_VERSION, true);
-    manager_launch_latest_return_value_test(UPDATED_VERSION, true, true);
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    manager_launch_latest_return_value_test(updater, UPDATED_VERSION, true);
+    manager_launch_latest_return_value_test(
+        updater, UPDATED_VERSION, true, true);
 }
 
 TEST(manager, LaunchLatestReturnsFalseWhenThereIsAnIdenticalVersion)
 {
-    manager_launch_latest_return_value_test(PREVIOUS_VERSION, false);
-    manager_launch_latest_return_value_test(PREVIOUS_VERSION, false, true);
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    manager_launch_latest_return_value_test(updater, PREVIOUS_VERSION, false);
+    manager_launch_latest_return_value_test(
+        updater, PREVIOUS_VERSION, false, true);
 }
 
 TEST(manager, LaunchLatestReturnsFalseWhenThereIsAnOlderVersion)
 {
-    manager_launch_latest_return_value_test(version_number(0, 0, 1), false);
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     manager_launch_latest_return_value_test(
-        version_number(0, 0, 1), false, true);
+        updater, version_number(0, 0, 1), false);
+    manager_launch_latest_return_value_test(
+        updater, version_number(0, 0, 1), false, true);
 }
 
 TEST(updater, ThrowsExceptionWhenCancelStateIsSetToTrue)
@@ -909,7 +914,7 @@ TEST(updater, StateIsAlreadyInstalledWhenAttemptingToDownloadAnUpdateAgain)
     EXPECT_EQ(state::update_already_installed, result.state());
 }
 
-TEST(updater, CreatingASecondManagerFailsWhenAnotherManagerHoldsTheUpdateLock)
+TEST(manager, CreatingASecondManagerFailsWhenAnotherManagerHoldsTheUpdateLock)
 {
     auto m1 = std::make_shared<::manager>(UPDATE_WORKING_DIR, PREVIOUS_VERSION);
     std::shared_ptr<::manager> m2;
@@ -917,7 +922,7 @@ TEST(updater, CreatingASecondManagerFailsWhenAnotherManagerHoldsTheUpdateLock)
         m2 = std::make_shared<::manager>(UPDATE_WORKING_DIR, PREVIOUS_VERSION));
 }
 
-TEST(updater, CreatingASecondManagerWorksWhenOtherManagerIsDestroyed)
+TEST(manager, CreatingASecondManagerWorksWhenOtherManagerIsDestroyed)
 {
     {
         auto m1 =
@@ -926,4 +931,20 @@ TEST(updater, CreatingASecondManagerWorksWhenOtherManagerIsDestroyed)
     std::shared_ptr<::manager> m2;
     EXPECT_NO_THROW(
         m2 = std::make_shared<::manager>(UPDATE_WORKING_DIR, PREVIOUS_VERSION));
+}
+
+TEST(manager, UpdateLockIsReleasedAfterCallingLaunchLatest)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    EXPECT_TRUE(updater.manager()->has_lock());
+    manager_launch_latest_return_value_test(updater, UPDATED_VERSION, true);
+    EXPECT_FALSE(updater.manager()->has_lock());
+}
+
+TEST(manager, UpdateLockIsStillHeldWhenLaunchLatestReturnsFalse)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    EXPECT_TRUE(updater.manager()->has_lock());
+    manager_launch_latest_return_value_test(updater, PREVIOUS_VERSION, false);
+    EXPECT_TRUE(updater.manager()->has_lock());
 }

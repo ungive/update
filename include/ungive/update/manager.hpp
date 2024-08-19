@@ -239,11 +239,11 @@ public:
     bool launch_latest(std::filesystem::path const& launcher_executable,
         std::vector<std::string> const& launcher_arguments = {})
     {
+        acquire_lock();
+
         auto process = internal::win::current_process_executable();
         auto latest = internal::sentinel(latest_path());
         auto update = latest_available_update();
-
-        release_lock();
 
         bool is_process_latest = internal::is_subpath(process, latest_path());
         bool have_latest = latest.read();
@@ -280,6 +280,8 @@ public:
             std::filesystem::create_directories(temp_directory);
             auto copied_executable = temp_directory / executable.filename();
             std::filesystem::copy(executable, copied_executable);
+            // Release the lock and launch the executable.
+            release_lock();
             internal::win::start_process_detached(
                 copied_executable, launcher_arguments);
             return true;
@@ -395,6 +397,10 @@ public:
             m_update_lock = nullptr;
         }
     }
+
+    inline bool has_lock() const { return m_update_lock != nullptr; }
+
+    inline operator bool() const { return has_lock(); }
 
 private:
     void unlink_files(
