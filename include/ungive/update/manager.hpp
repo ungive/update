@@ -92,6 +92,31 @@ public:
     // Returns the name of the latest directory.
     std::string const& latest_directory() const { return m_latest_directory; }
 
+    // Sets a list of files that should be retained when an update is applied.
+    // This could e.g. be an uninstaller executable which was extracted
+    // in to the application directory by the application's installer,
+    // but which is not part of an update's release archive
+    // (e.g. NSIS installers come with an uninstaller).
+    //
+    // Before an update is applied these files will be temporarily moved
+    // to a another directory and then moved back once the update is applied.
+    // If an update happens to include any files with the same name though,
+    // then the old file will not overwrite that file and is deleted instead.
+    //
+    // The list of paths must be relative inside the application directory.
+    // May also contain directory names next to file names,
+    // in which case the entire directory is retained.
+    //
+    void retain_installed_files(std::vector<std::filesystem::path> paths)
+    {
+        for (auto const& path : paths) {
+            if (!path.is_relative()) {
+                throw std::invalid_argument("paths must be relative");
+            }
+        }
+        m_retain_paths = paths;
+    }
+
     // Returns the latest installed version in the manager's working directory,
     // excluding the version that might be present in the "latest" directory.
     // May throw an exception if any error occurs.
@@ -314,22 +339,24 @@ public:
         auto update = latest_available_update();
         if (update.has_value() &&
             (!latest.read() || latest.version() < update->first)) {
+            auto update_directory = update->second;
+            if (!std::filesystem::exists(update_directory)) {
+                throw std::runtime_error("update directory does not exist");
+            }
             // Kill any processes that were started in these directories.
-            // Additionally delete the target directory.
+            if (kill_processes) {
+                internal::win::kill_processes(latest_directory);
+                internal::win::kill_processes(update_directory);
+            }
+            // Move the files to retain into the update's directory,
+            // then delete the latest directory.
             if (std::filesystem::exists(latest_directory)) {
-                if (kill_processes) {
-                    internal::win::kill_processes(latest_directory);
-                }
+                move_retained_files(latest_directory, update_directory);
                 std::filesystem::remove_all(latest_directory);
             }
-            if (update.has_value() && std::filesystem::exists(update->second)) {
-                if (kill_processes) {
-                    internal::win::kill_processes(update->second);
-                }
-            }
             // Rename update to the latest name and delete the update directory.
-            std::filesystem::rename(update->second, latest_directory);
-            std::filesystem::remove_all(update->second);
+            std::filesystem::rename(update_directory, latest_directory);
+            std::filesystem::remove_all(update_directory);
             return update->first;
         }
         return std::nullopt;
@@ -455,11 +482,35 @@ private:
         }
     }
 
+    void move_retained_files(
+        std::filesystem::path const& from, std::filesystem::path const& to)
+    {
+        for (std::filesystem::path const& path : m_retain_paths) {
+            auto source_path = from / path;
+            if (!std::filesystem::exists(source_path)) {
+                // The file to retain does not exist.
+                continue;
+            }
+            auto target_path = to / path;
+            if (std::filesystem::exists(target_path)) {
+                // The file to retain exists in the update (target) directory.
+                // We do not overwrite any update files, so skip it.
+                continue;
+            }
+            // Create the target file's/directory's parent path,
+            // then move the source file to the target file.
+            assert(target_path.has_parent_path());
+            std::filesystem::create_directories(target_path.parent_path());
+            std::filesystem::rename(source_path, target_path);
+        }
+    }
+
     std::filesystem::path m_working_directory;
     version_number m_current_version;
     std::string m_latest_directory;
 
     std::unique_ptr<internal::win::lock_file> m_update_lock{ nullptr };
+    std::vector<std::filesystem::path> m_retain_paths{};
 };
 
 } // namespace ungive::update

@@ -948,3 +948,66 @@ TEST(manager, UpdateLockIsStillHeldWhenLaunchLatestReturnsFalse)
     manager_launch_latest_return_value_test(updater, PREVIOUS_VERSION, false);
     EXPECT_TRUE(updater.manager()->has_lock());
 }
+
+TEST(manager, NoFilesAreRetainedWhenApplyingLatestUpdate)
+{
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater_update_test(updater, "release-1.2.3.txt");
+    auto file = updater.working_directory() /
+        updater.manager()->latest_directory() / "test.txt";
+    internal::touch_file(file);
+    EXPECT_TRUE(std::filesystem::exists(file));
+    updater.manager()->apply_latest();
+    EXPECT_FALSE(std::filesystem::exists(file));
+}
+
+TEST(manager, FileIsRetainedWhenPassedToRetainInstalledFiles)
+{
+    std::string retain_filename = "test.txt";
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater.manager()->retain_installed_files({ retain_filename });
+    updater_update_test(updater, "release-1.2.3.txt");
+    auto file = updater.working_directory() /
+        updater.manager()->latest_directory() / retain_filename;
+    internal::touch_file(file);
+    EXPECT_TRUE(std::filesystem::exists(file));
+    updater.manager()->apply_latest();
+    EXPECT_TRUE(std::filesystem::exists(file));
+}
+
+TEST(manager, FileIsNotRetainedWhenAnUpdateHasTheFileToRetain)
+{
+    std::string retain_filename = "test.txt";
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater.manager()->retain_installed_files({ retain_filename });
+    updater_update_test(updater, "release-1.2.3.txt");
+    auto update = updater.manager()->latest_available_update();
+    ASSERT_TRUE(update.has_value());
+    auto retain_path = updater.working_directory() /
+        updater.manager()->latest_directory() / retain_filename;
+    auto update_path = update->second / retain_filename;
+    internal::write_file(retain_path, "old");
+    internal::write_file(update_path, "new");
+    EXPECT_TRUE(std::filesystem::exists(retain_path));
+    EXPECT_TRUE(std::filesystem::exists(update_path));
+    updater.manager()->apply_latest();
+    EXPECT_TRUE(std::filesystem::exists(retain_path));
+    EXPECT_FALSE(std::filesystem::exists(update_path));
+    auto content = internal::read_file(retain_path);
+    EXPECT_EQ("new", content);
+}
+
+TEST(manager, FileInDirectoryIsRetainedWhenPassedToRetainInstalledFiles)
+{
+    std::string retain_path = "directory/subdirectory/test.txt";
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater.manager()->retain_installed_files({ retain_path });
+    updater_update_test(updater, "release-1.2.3.txt");
+    auto file = updater.working_directory() /
+        updater.manager()->latest_directory() / retain_path;
+    std::filesystem::create_directories(file.parent_path());
+    internal::touch_file(file);
+    EXPECT_TRUE(std::filesystem::exists(file));
+    updater.manager()->apply_latest();
+    EXPECT_TRUE(std::filesystem::exists(file));
+}
