@@ -67,7 +67,7 @@ inline std::string read_file(
             "file to read does not exist: " + path.string());
     }
     std::ifstream ifd(path, std::ios::binary | std::ios::ate);
-    int size = ifd.tellg();
+    std::streampos size = ifd.tellg();
     ifd.seekg(0, std::ios::beg);
     std::string buffer(size, '_');
     ifd.read(buffer.data(), size);
