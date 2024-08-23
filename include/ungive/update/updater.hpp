@@ -26,6 +26,24 @@
 #include "ungive/update/internal/zip.h"
 #endif
 
+namespace ungive::update::internal
+{
+
+inline std::regex filename_contains_version_pattern(
+    std::string const& version_string)
+{
+    // The filename must contain the version string, e.g. "1.2.3"
+    // and there may not be any additional digits
+    // or periods followed or preceded by digits
+    // to the left or right of the expected version string,
+    // otherwise a version like "12.2.3" or "1.2.3.4" would be valid.
+
+    return std::regex(R"((^|^[^0-9]|[^0-9]\.|[^.0-9]))" + version_string +
+        R"(([^.0-9]|\.[^0-9]|[^0-9]$|$))");
+}
+
+} // namespace ungive::update::internal
+
 namespace ungive::update
 {
 
@@ -76,6 +94,22 @@ public:
     inline void archive_type(update::archive_type type)
     {
         m_archive_type = type;
+    }
+
+    // Sets whether the filename must contain the version number.
+    //
+    // If set, verifies that the update file yielded by a latest retriever
+    // actually resembles the version that the latest retriever claims it is.
+    // When hash verification is used in conjunction with a message digest,
+    // then the filename is authenticated and therefore the version too.
+    // This should always be used with hash and message digest verification.
+    //
+    // It is assumed that a downloaded file resembles a specific version
+    // if the name of that file contains the respective version string.
+    //
+    inline void filename_contains_version(bool state)
+    {
+        m_filename_contains_version = state;
     }
 
     // Set the filename pattern to specify which file to download.
@@ -137,7 +171,7 @@ public:
     std::filesystem::path update(
         version_number const& version, file_url const& url)
     {
-        check_url(url);
+        check_url(url, version);
         m_downloader->base_url(url.base_url());
         auto latest_release = m_downloader->get(url.filename());
         return extract_archive(version, latest_release.path());
@@ -166,7 +200,7 @@ public:
         // Validate the URL.
         std::regex filename_pattern(m_download_filename_pattern);
         auto [version, url] = m_latest_retriever_func(filename_pattern);
-        check_url(url);
+        check_url(url, version);
 
         // Check if the latest installed version is the new version,
         // such that we don't install the latest update again.
@@ -196,8 +230,17 @@ public:
     bool cancel() const { return m_downloader->cancel(); }
 
 private:
-    void check_url(file_url const& url)
+    void check_url(file_url const& url, version_number const& version)
     {
+        if (m_filename_contains_version.has_value()) {
+            if (m_filename_contains_version.value()) {
+                verify_filename_contains_version(url.filename(), version);
+            }
+        } else {
+            // This setting must be set explicitly by the user.
+            throw std::runtime_error(
+                "missing whether the filename should contain the version");
+        }
         if (m_download_url_pattern.has_value()) {
             std::regex filename_pattern(m_download_filename_pattern);
             if (!std::regex_match(url.filename(), filename_pattern)) {
@@ -211,6 +254,18 @@ private:
                 throw std::runtime_error(
                     "the download url pattern does not match");
             }
+        }
+    }
+
+    void verify_filename_contains_version(
+        std::string const& filename, version_number const& version)
+    {
+        auto expected = version.string();
+        auto pattern = internal::filename_contains_version_pattern(expected);
+        if (!internal::regex_contains(filename, pattern)) {
+            throw std::runtime_error(
+                "the filename does not contain the correct version " +
+                expected + ": " + filename);
         }
     }
 
@@ -266,6 +321,7 @@ private:
     internal::types::latest_retriever_func m_latest_retriever_func{};
     std::vector<internal::types::post_update_operation_func>
         m_post_update_operations{};
+    std::optional<bool> m_filename_contains_version{};
 };
 
 } // namespace ungive::update

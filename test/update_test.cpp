@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <optional>
 
@@ -19,6 +20,12 @@ using namespace std::chrono_literals;
 const std::filesystem::path UPDATE_WORKING_DIR =
     internal::win::local_appdata_path("ungive_update_test_dir").value();
 #endif
+
+static const char* MOCK_URL_GITHUB_API_SIMPLE =
+    "https://ungive.github.io/update_test/github-api-mock/latest-simple.json";
+static const char* MOCK_URL_GITHUB_API_DOWNGRADE_ATTACK =
+    "https://ungive.github.io/update_test/github-api-mock/"
+    "latest-downgrade-attack.json";
 
 const char* PUBLIC_KEY = R"key(
 -----BEGIN PUBLIC KEY-----
@@ -230,11 +237,11 @@ TEST(latest_retriever, YieldsLatestVersionWhenUsingOldRepositoryName)
 class mock_github_api_latest_retriever : public github_api_latest_retriever
 {
 public:
-    mock_github_api_latest_retriever()
+    mock_github_api_latest_retriever(
+        std::string inject_api_url = MOCK_URL_GITHUB_API_SIMPLE)
         : github_api_latest_retriever("ungive", "update_test")
     {
-        inject_api_url("https://ungive.github.io/update_test/github-api-mock/"
-                       "latest-simple.json");
+        github_api_latest_retriever::inject_api_url(inject_api_url);
     }
 };
 
@@ -262,6 +269,7 @@ static auto PATTERN_ZIP_SUB = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
     updater.add_update_verification(verifiers::sha256sums("SHA256SUMS.txt"));
     updater.add_update_verification(verifiers::message_digest(
         "SHA256SUMS.txt", "SHA256SUMS.txt.sig", "PEM", "ED25519", PUBLIC_KEY));
+    updater.filename_contains_version(false);
     return updater;
 }
 
@@ -316,7 +324,8 @@ std::optional<version_number> read_sentinel(
 std::optional<std::pair<update_info, std::filesystem::path>>
 updater_update_test(::updater& updater,
     std::filesystem::path const& expected_extracted_file,
-    bool should_throw = false)
+    bool should_throw = false,
+    version_number const& expect_version = UPDATED_VERSION)
 {
     std::optional<std::pair<update_info, std::filesystem::path>> result;
     EXPECT_EQ(std::nullopt, updater.manager()->latest_available_update());
@@ -339,7 +348,7 @@ updater_update_test(::updater& updater,
         std::filesystem::exists(result->second / expected_extracted_file));
     auto latest_installed = updater.manager()->latest_available_update();
     EXPECT_TRUE(latest_installed.has_value());
-    EXPECT_EQ(version_number(1, 2, 3), result->first.version());
+    EXPECT_EQ(expect_version, result->first.version());
     EXPECT_EQ(result->first.version(), latest_installed->first);
     EXPECT_EQ(result->second, latest_installed->second);
     EXPECT_EQ(result->first.version(), read_sentinel(result->second));
@@ -1010,4 +1019,76 @@ TEST(manager, FileInDirectoryIsRetainedWhenPassedToRetainInstalledFiles)
     EXPECT_TRUE(std::filesystem::exists(file));
     updater.manager()->apply_latest();
     EXPECT_TRUE(std::filesystem::exists(file));
+}
+
+TEST(updater, DowngradeAttackPossibleWhenDisablingVersionInFilenameVerification)
+{
+    // downgrade ships version 2.1.3, but report version 1.2.4
+    auto expected_version = version_number(1, 2, 4);
+    auto updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater.update_source(
+        mock_github_api_latest_retriever(MOCK_URL_GITHUB_API_DOWNGRADE_ATTACK));
+    updater.filename_contains_version(false);
+    updater_update_test(updater, "release-1.2.3.txt", false, expected_version);
+}
+
+TEST(updater, DowngradeAttackMitigatedWhenEnablingVersionInFilenameVerification)
+{
+    // downgrade ships version 2.1.3, but report version 1.2.4
+    auto expected_version = version_number(1, 2, 4);
+    auto updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater.update_source(
+        mock_github_api_latest_retriever(MOCK_URL_GITHUB_API_DOWNGRADE_ATTACK));
+    updater.filename_contains_version(true);
+    updater_update_test(updater, "release-1.2.3.txt", true, expected_version);
+}
+
+TEST(updater, FilenameContainsVersionRegexTest)
+{
+    std::vector<std::string> versions = {
+        version_number(2).string(),
+        version_number(13).string(),
+        version_number(13451).string(),
+        version_number(2, 331).string(),
+        version_number(1, 4).string(),
+        version_number(1, 3, 4).string(),
+        version_number(13, 5246, 141).string(),
+    };
+    std::vector<std::pair<std::string, bool>> prefixes = {
+        { "", true },
+        { ".", true },
+        { "0", false },
+        { "a", true },
+        { "..", true },
+        { "0.", false },
+        { ".1", false },
+        { "01", false },
+        { "a.", true },
+        { ".a", true },
+        { "aa", true },
+        { "5a", true },
+        { "a8", false },
+    };
+    using namespace internal;
+    for (auto const& version : versions) {
+        auto reg = filename_contains_version_pattern(version);
+        for (auto const& [prefix, expected] : prefixes) {
+            EXPECT_EQ(expected, regex_contains(prefix + version, reg));
+        }
+        for (auto const& [prefix, expected] : prefixes) {
+            auto suffix = prefix;
+            std::reverse(suffix.begin(), suffix.end());
+            EXPECT_EQ(expected, regex_contains(version + suffix, reg));
+        }
+        for (auto const& [a, u] : prefixes) {
+            for (auto const& [b, v] : prefixes) {
+                auto expected = u && v;
+                auto prefix = a;
+                auto suffix = b;
+                std::reverse(suffix.begin(), suffix.end());
+                EXPECT_EQ(
+                    expected, regex_contains(prefix + version + suffix, reg));
+            }
+        }
+    }
 }

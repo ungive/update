@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <random>
+#include <regex>
 #include <sstream>
 #include <utility>
 
@@ -140,6 +141,13 @@ inline bool is_subpath(
     const auto mismatch_pair =
         std::mismatch(path.begin(), path.end(), base.begin(), base.end());
     return mismatch_pair.second == base.end();
+}
+
+// Checks if a regex matches anywhere in a string.
+inline bool regex_contains(std::string const& s, std::regex const& pattern)
+{
+    auto it = std::sregex_iterator(s.begin(), s.end(), pattern);
+    return std::distance(it, std::sregex_iterator()) > 0;
 }
 
 } // namespace ungive::update::internal
