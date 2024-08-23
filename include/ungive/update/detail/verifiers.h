@@ -14,8 +14,8 @@ public:
     using runtime_error::runtime_error;
 };
 
+// Verifier for message digests for authentication.
 class message_digest : public internal::types::base_verifier
-
 {
 public:
     message_digest(std::string const& message_filename,
@@ -38,17 +38,17 @@ public:
     {
     }
 
-    bool operator()(std::string const& path,
-        std::unordered_map<std::string, downloaded_file> const& files)
-        const override
+    void operator()(types::verification_payload const& payload) const override
     {
         bool has_valid = false;
         for (auto const& encoded_public_key : m_encoded_public_keys) {
             auto key = internal::crypto::parse_public_key(
                 encoded_public_key, m_key_format, m_key_type);
             auto valid_signature = internal::crypto::verify_signature(key.get(),
-                files.at(m_digest_filename).read(std::ios::binary),
-                files.at(m_message_filename).read(std::ios::binary));
+                payload.additional_files.at(m_digest_filename)
+                    .read(std::ios::binary),
+                payload.additional_files.at(m_message_filename)
+                    .read(std::ios::binary));
             if (valid_signature) {
                 has_valid = valid_signature;
                 break;
@@ -57,7 +57,6 @@ public:
         if (!has_valid) {
             throw verification_failed("invalid signature");
         }
-        return true;
     }
 
 private:
@@ -77,16 +76,14 @@ public:
     {
     }
 
-    bool operator()(std::string const& path,
-        std::unordered_map<std::string, downloaded_file> const& files)
-        const override
+    void operator()(types::verification_payload const& payload) const override
     {
-        auto it = files.find(m_sums_filename);
-        if (it == files.end()) {
+        auto it = payload.additional_files.find(m_sums_filename);
+        if (it == payload.additional_files.end()) {
             throw std::runtime_error("sha256sums file not available");
         }
         auto sums = parse_sha256sums(it->second.read());
-        auto found = files.end();
+        auto found = payload.additional_files.end();
         std::string hash;
         for (auto const& pair : sums) {
             auto verify_path = std::filesystem::path(pair.second);
@@ -98,20 +95,19 @@ public:
                 verify_path = sums_path.parent_path() / verify_path;
             }
             if (std::filesystem::absolute(verify_path) ==
-                std::filesystem::absolute(path)) {
-                found = files.find(path);
+                std::filesystem::absolute(payload.file)) {
+                found = payload.additional_files.find(payload.file);
                 hash = pair.first;
                 break;
             }
         }
-        if (found == files.end()) {
+        if (found == payload.additional_files.end()) {
             throw std::runtime_error(
                 "file to verify not present in shasums file");
         }
         if (!verify_hash(hash, found->second)) {
             throw verification_failed("sha256 hashes do not match");
         }
-        return true;
     }
 
 private:

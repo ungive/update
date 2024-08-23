@@ -12,8 +12,8 @@
 namespace ungive::update::internal::types
 {
 
-using verifier_func = std::function<bool(std::string const& path,
-    std::unordered_map<std::string, downloaded_file> const&)>;
+using verifier_func =
+    std::function<void(ungive::update::types::verification_payload const&)>;
 
 using latest_extractor_func = std::function<std::pair<version_number, file_url>(
     downloaded_file const& file)>;
@@ -24,6 +24,8 @@ using latest_retriever_func = std::function<std::pair<version_number, file_url>(
 class base_verifier : public ungive::update::types::verifier
 {
 public:
+    base_verifier() : m_files{} {}
+
     base_verifier(std::string const& required_file) : m_files({ required_file })
     {
     }

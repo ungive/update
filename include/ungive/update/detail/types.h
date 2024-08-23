@@ -11,16 +11,27 @@
 namespace ungive::update::types
 {
 
+struct verification_payload
+{
+    std::string const& file;
+    std::unordered_map<std::string, downloaded_file> const& additional_files;
+
+    verification_payload(
+        decltype(file) file, decltype(additional_files) additional_files)
+        : file{ file }, additional_files{ additional_files }
+    {
+    }
+
+    verification_payload(verification_payload const&) = delete;
+};
+
 class verifier
 {
 public:
     // Verifies the given path using the additional files.
-    // Must return true if verification succeeded.
-    // Should throw an exception if verification failed, explaining what
-    // happened or return false.
-    virtual bool operator()(std::string const& path,
-        std::unordered_map<std::string, downloaded_file> const& files)
-        const = 0;
+    // Must throw an exception if verification failed, explaining why.
+    // If no exception is thrown, then verification is considered successful.
+    virtual void operator()(verification_payload const& payload) const = 0;
 
     // Returns the additional files needed for this verification.
     virtual std::vector<std::string> const& files() const = 0;

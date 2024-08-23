@@ -92,9 +92,7 @@ public:
         }
         auto result = get_file(cli, path);
         for (auto const& verify : m_verification_funcs) {
-            if (!verify(path, m_downloaded_files)) {
-                std::runtime_error("verification failed");
-            }
+            verify(types::verification_payload(path, m_downloaded_files));
         }
         return result;
     }
