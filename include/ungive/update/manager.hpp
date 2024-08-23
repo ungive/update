@@ -182,7 +182,7 @@ public:
         auto process = internal::win::current_process_executable();
         if (process.has_parent_path()) {
             auto path = std::filesystem::relative(process, m_working_directory);
-            if (path.begin() != path.end()) {
+            if (path.begin() != path.end() && *path.begin() != "..") {
                 auto root_directory = *path.begin();
                 exclude_directories.insert(root_directory);
             }
