@@ -151,8 +151,8 @@ protected:
             });
         if (!res) {
             auto err = res.error();
-            throw std::runtime_error(
-                "failed to download file: " + httplib::to_string(err));
+            throw std::runtime_error("failed to download " + m_host +
+                m_base_path + path + ": " + httplib::to_string(err));
         }
     }
 
