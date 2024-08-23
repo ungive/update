@@ -83,10 +83,14 @@ public:
         httplib::Client cli(m_host);
         // Always follow redirects.
         cli.set_follow_location(true);
-        auto result = get_file(cli, path);
+        // Get the additional files first, as they are usually smaller
+        // and faster to download. If one of them does not exist on the remote,
+        // the download operation will fail sooner and we won't
+        // have unnecessarily downloaded a possibly large file.
         for (auto const& additional_path : m_additional_files) {
             get_file(cli, additional_path);
         }
+        auto result = get_file(cli, path);
         for (auto const& verify : m_verification_funcs) {
             if (!verify(path, m_downloaded_files)) {
                 std::runtime_error("verification failed");
