@@ -1092,3 +1092,37 @@ TEST(updater, FilenameContainsVersionRegexTest)
         }
     }
 }
+
+class check_file_exists : public types::content_operation
+{
+public:
+    check_file_exists(std::string const& filename) : m_filename{ filename } {}
+
+    void operator()(std::filesystem::path const& extracted_directory) override
+    {
+        auto path = extracted_directory / m_filename;
+        if (!std::filesystem::exists(path)) {
+            throw std::runtime_error("file " + m_filename + " does not exist");
+        }
+    }
+
+private:
+    std::string m_filename;
+};
+
+TEST(updater, UpdateSucceedsWhenUpdateContentVerificationSucceeds)
+{
+    auto expected_version = version_number(1, 2, 3);
+    auto updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater.add_update_content_verification(
+        check_file_exists("release-1.2.3.txt"));
+    updater_update_test(updater, "release-1.2.3.txt", false);
+}
+
+TEST(updater, UpdateFailsWhenUpdateContentVerificationFails)
+{
+    auto expected_version = version_number(1, 2, 3);
+    auto updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater.add_update_content_verification(check_file_exists("bogus.txt"));
+    updater_update_test(updater, "release-1.2.3.txt", true);
+}

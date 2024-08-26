@@ -136,11 +136,21 @@ public:
         m_downloader->add_verification(verifier);
     }
 
+    // Add any number of verification steps for extracted update content.
+    // If the operation throws an exception, the update is cancelled
+    // and not applied or copied into the updater's working directory.
+    template <typename O,
+        typename std::enable_if<std::is_base_of<types::content_operation,
+            O>::value>::type* = nullptr>
+    void add_update_content_verification(O const& operation)
+    {
+        m_content_verification_funcs.push_back(operation);
+    }
+
     // Add any number of post-update operations to perform after an update.
     template <typename O,
-        typename std::enable_if<
-            std::is_base_of<internal::types::post_update_operation_interface,
-                O>::value>::type* = nullptr>
+        typename std::enable_if<std::is_base_of<types::content_operation,
+            O>::value>::type* = nullptr>
     void add_post_update_operation(O const& operation)
     {
         m_post_update_operations.push_back(operation);
@@ -280,11 +290,34 @@ private:
         if (std::filesystem::exists(output_directory)) {
             throw std::runtime_error("update directory could not be cleared");
         }
-        std::filesystem::create_directories(output_directory);
+        auto temp_dir = internal::create_temporary_directory();
+        std::shared_ptr<void> defer(nullptr, std::bind([temp_dir] {
+            // Delete the temporary directory once this method terminates.
+            // Make sure it doesn't throw, as it's called in a destructor.
+            try {
+                std::filesystem::remove_all(temp_dir);
+            }
+            catch (...) {
+            }
+        }));
         switch (m_archive_type) {
 #ifdef WIN32
         case archive_type::zip_archive:
-            internal::zip_extract(archive_path, output_directory.string());
+            internal::zip_extract(archive_path, temp_dir.string());
+            for (auto const& verify : m_content_verification_funcs) {
+                try {
+                    verify(temp_dir);
+                }
+                catch (std::exception const& e) {
+                    throw std::runtime_error(
+                        std::string("content verification failed: ") +
+                        e.what());
+                }
+            }
+            // After the content has been verified, move it.
+            // That way only verified content can live in the working directory
+            // and the extracted directory is created there in one operation.
+            std::filesystem::rename(temp_dir, output_directory);
             for (auto const& operation : m_post_update_operations) {
                 try {
                     operation(output_directory);
@@ -319,7 +352,9 @@ private:
     std::string m_download_filename_pattern{};
     std::optional<std::regex> m_download_url_pattern{};
     internal::types::latest_retriever_func m_latest_retriever_func{};
-    std::vector<internal::types::post_update_operation_func>
+    std::vector<internal::types::content_operation_func>
+        m_content_verification_funcs{};
+    std::vector<internal::types::content_operation_func>
         m_post_update_operations{};
     std::optional<bool> m_filename_contains_version{};
 };

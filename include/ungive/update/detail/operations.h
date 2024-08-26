@@ -10,8 +10,7 @@
 
 namespace ungive::update::operations
 {
-class flatten_extracted_directory
-    : public internal::types::post_update_operation_interface
+class flatten_extracted_directory : public types::content_operation
 {
 public:
     // Flattens the extracted directory if the ZIP file contains
@@ -35,8 +34,7 @@ private:
     bool m_fail_if_not_flattened;
 };
 
-class create_start_menu_shortcut
-    : public internal::types::post_update_operation_interface
+class create_start_menu_shortcut : public types::content_operation
 {
 public:
     // Installs a start menu shortcut to the target executable.

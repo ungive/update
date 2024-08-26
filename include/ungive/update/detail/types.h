@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <regex>
 #include <string>
 #include <unordered_map>
@@ -58,6 +59,15 @@ public:
     // Returns a generic, constant pattern for this latest retriever
     // which all download URLs must match.
     virtual std::regex url_pattern() const = 0;
+};
+
+class content_operation
+{
+public:
+    // Performs an operation on extracted update content.
+    // The parameter is the directory to which the update has been extracted.
+    virtual void operator()(
+        std::filesystem::path const& extracted_directory) = 0;
 };
 
 } // namespace ungive::update::types
