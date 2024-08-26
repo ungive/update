@@ -26,7 +26,12 @@ public:
     {
         // Delete all downloaded files once destructed.
         if (!m_temp_dir.empty()) {
-            std::filesystem::remove_all(m_temp_dir);
+            // Make sure the destructor does not throw.
+            try {
+                std::filesystem::remove_all(m_temp_dir);
+            }
+            catch (...) {
+            }
         }
     }
 
