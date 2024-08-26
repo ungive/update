@@ -1114,8 +1114,7 @@ TEST(updater, UpdateSucceedsWhenUpdateContentVerificationSucceeds)
 {
     auto expected_version = version_number(1, 2, 3);
     auto updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
-    updater.add_update_content_verification(
-        check_file_exists("release-1.2.3.txt"));
+    updater.add_content_operation(check_file_exists("release-1.2.3.txt"));
     updater_update_test(updater, "release-1.2.3.txt", false);
 }
 
@@ -1123,6 +1122,23 @@ TEST(updater, UpdateFailsWhenUpdateContentVerificationFails)
 {
     auto expected_version = version_number(1, 2, 3);
     auto updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
-    updater.add_update_content_verification(check_file_exists("bogus.txt"));
+    updater.add_content_operation(check_file_exists("bogus.txt"));
     updater_update_test(updater, "release-1.2.3.txt", true);
+}
+
+TEST(updater, UpdateFailsWhenUpdateIsNotFlattenedBeforeVerification)
+{
+    auto expected_version = version_number(1, 2, 3);
+    auto updater = create_updater(PATTERN_ZIP_SUB, PREVIOUS_VERSION);
+    updater.add_content_operation(check_file_exists("release-1.2.3.txt"));
+    updater_update_test(updater, "release-1.2.3.txt", true);
+}
+
+TEST(updater, UpdateSucceedsWhenUpdateIsFlattenedBeforeVerification)
+{
+    auto expected_version = version_number(1, 2, 3);
+    auto updater = create_updater(PATTERN_ZIP_SUB, PREVIOUS_VERSION);
+    updater.add_content_operation(operations::flatten_extracted_directory());
+    updater.add_content_operation(check_file_exists("release-1.2.3.txt"));
+    updater_update_test(updater, "release-1.2.3.txt", false);
 }

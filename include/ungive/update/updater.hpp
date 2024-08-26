@@ -136,18 +136,19 @@ public:
         m_downloader->add_verification(verifier);
     }
 
-    // Add any number of verification steps for extracted update content.
+    // Add any number of operations for extracted update content.
     // If the operation throws an exception, the update is cancelled
     // and not applied or copied into the updater's working directory.
     template <typename O,
         typename std::enable_if<std::is_base_of<types::content_operation,
             O>::value>::type* = nullptr>
-    void add_update_content_verification(O const& operation)
+    void add_content_operation(O const& operation)
     {
-        m_content_verification_funcs.push_back(operation);
+        m_content_operations.push_back(operation);
     }
 
-    // Add any number of post-update operations to perform after an update.
+    // Add any number of post-update operations to perform
+    // after an update has been applied and copied to the updater's directory.
     template <typename O,
         typename std::enable_if<std::is_base_of<types::content_operation,
             O>::value>::type* = nullptr>
@@ -304,14 +305,13 @@ private:
 #ifdef WIN32
         case archive_type::zip_archive:
             internal::zip_extract(archive_path, temp_dir.string());
-            for (auto const& verify : m_content_verification_funcs) {
+            for (auto const& operation : m_content_operations) {
                 try {
-                    verify(temp_dir);
+                    operation(temp_dir);
                 }
                 catch (std::exception const& e) {
                     throw std::runtime_error(
-                        std::string("content verification failed: ") +
-                        e.what());
+                        std::string("content operation failed: ") + e.what());
                 }
             }
             // After the content has been verified, move it.
@@ -352,8 +352,7 @@ private:
     std::string m_download_filename_pattern{};
     std::optional<std::regex> m_download_url_pattern{};
     internal::types::latest_retriever_func m_latest_retriever_func{};
-    std::vector<internal::types::content_operation_func>
-        m_content_verification_funcs{};
+    std::vector<internal::types::content_operation_func> m_content_operations{};
     std::vector<internal::types::content_operation_func>
         m_post_update_operations{};
     std::optional<bool> m_filename_contains_version{};
