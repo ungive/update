@@ -130,8 +130,11 @@ protected:
     downloaded_file const& get_file(
         httplib::Client& cli, std::string const& filename)
     {
-        return get_file(cli, filename,
-            m_base_path + internal::ensure_nonempty_prefix(filename, '/'));
+        auto path = filename;
+        if (m_base_path != "/") {
+            path = internal::ensure_nonempty_prefix(path, '/');
+        }
+        return get_file(cli, filename, m_base_path + path);
     }
 
     downloaded_file const& get_external_file(
