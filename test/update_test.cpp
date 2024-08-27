@@ -1112,7 +1112,6 @@ private:
 
 TEST(updater, UpdateSucceedsWhenUpdateContentVerificationSucceeds)
 {
-    auto expected_version = version_number(1, 2, 3);
     auto updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     updater.add_content_operation(check_file_exists("release-1.2.3.txt"));
     updater_update_test(updater, "release-1.2.3.txt", false);
@@ -1120,7 +1119,6 @@ TEST(updater, UpdateSucceedsWhenUpdateContentVerificationSucceeds)
 
 TEST(updater, UpdateFailsWhenUpdateContentVerificationFails)
 {
-    auto expected_version = version_number(1, 2, 3);
     auto updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     updater.add_content_operation(check_file_exists("bogus.txt"));
     updater_update_test(updater, "release-1.2.3.txt", true);
@@ -1128,7 +1126,6 @@ TEST(updater, UpdateFailsWhenUpdateContentVerificationFails)
 
 TEST(updater, UpdateFailsWhenUpdateIsNotFlattenedBeforeVerification)
 {
-    auto expected_version = version_number(1, 2, 3);
     auto updater = create_updater(PATTERN_ZIP_SUB, PREVIOUS_VERSION);
     updater.add_content_operation(check_file_exists("release-1.2.3.txt"));
     updater_update_test(updater, "release-1.2.3.txt", true);
@@ -1136,9 +1133,66 @@ TEST(updater, UpdateFailsWhenUpdateIsNotFlattenedBeforeVerification)
 
 TEST(updater, UpdateSucceedsWhenUpdateIsFlattenedBeforeVerification)
 {
-    auto expected_version = version_number(1, 2, 3);
     auto updater = create_updater(PATTERN_ZIP_SUB, PREVIOUS_VERSION);
     updater.add_content_operation(operations::flatten_extracted_directory());
     updater.add_content_operation(check_file_exists("release-1.2.3.txt"));
     updater_update_test(updater, "release-1.2.3.txt", false);
+}
+
+class ExpectCalled
+{
+public:
+    ExpectCalled(int n = 1) { EXPECT_CALL(*this, callback()).Times(n); }
+
+    ~ExpectCalled()
+    {
+        // Give some time for the callback to be called.
+        std::this_thread::sleep_for(25ms);
+    }
+
+    auto operator()() { wrap_callback(); }
+
+    std::function<void()> get()
+    {
+        return [this] {
+            wrap_callback();
+        };
+    }
+
+    inline uint64_t count() const { return m_called.load(); }
+
+private:
+    void wrap_callback()
+    {
+        m_called += 1;
+        callback();
+    }
+
+    MOCK_METHOD(void, callback, ());
+
+    std::atomic<uint64_t> m_called{ 0 };
+};
+
+TEST(updater, UsesAlternateUrlWhenUrlIsOverridden)
+{
+    ExpectCalled callback;
+    auto updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater.override_file_url("SHA256SUMS.txt", [&](auto const& version) {
+        callback();
+        EXPECT_EQ(UPDATED_VERSION, version);
+        return "https://ungive.github.io/update_test/other-host/SHA256SUMS.txt";
+    });
+    updater_update_test(updater, "release-1.2.3.txt", false);
+}
+
+TEST(updater, FailsWithAlternateUrlWhenOverridenUrlDoesNotExist)
+{
+    ExpectCalled callback;
+    auto updater = create_updater(PATTERN_ZIP_SUB, PREVIOUS_VERSION);
+    updater.override_file_url("SHA256SUMS.txt", [&](auto const& version) {
+        callback();
+        EXPECT_EQ(UPDATED_VERSION, version);
+        return "https://example-g3hgksjehf.com/does-not-exist/SHA256SUMS.txt";
+    });
+    updater_update_test(updater, "release-1.2.3.txt", true);
 }

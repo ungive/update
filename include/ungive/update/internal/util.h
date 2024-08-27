@@ -91,11 +91,20 @@ inline std::string random_string(std::size_t length)
     return str;
 }
 
+// Ensures that the given text has the given prefix, if it isn't empty
+inline std::string ensure_nonempty_prefix(std::string const& text, char prefix)
+{
+    if (text.size() > 0 && text.at(0) != prefix) {
+        return prefix + text;
+    }
+    return text;
+}
+
 // Splits host and path components of a URL.
+// The returned path component is guaranteed to start with a slash.
 inline std::pair<std::string, std::string> split_host_path(
     std::string const& url)
 {
-    bool slash = false;
     size_t i = 0;
     for (; i < url.size(); i++) {
         char c = url[i];
@@ -109,7 +118,9 @@ inline std::pair<std::string, std::string> split_host_path(
             break;
         }
     }
-    return std::make_pair(url.substr(0, i), url.substr(i));
+    auto host = url.substr(0, i);
+    auto path = url.substr(i);
+    return std::make_pair(host, ensure_nonempty_prefix(path, '/'));
 }
 
 // Strips leading slashes from a path.

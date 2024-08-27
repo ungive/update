@@ -157,6 +157,15 @@ public:
         m_post_update_operations.push_back(operation);
     }
 
+    // Override the URL for a specific filename and a specific version,
+    // in case that file is e.g. hosted on a different server
+    // or under a different path.
+    void override_file_url(std::string const& filename,
+        std::function<std::string(version_number const& version)> callback)
+    {
+        m_file_url_overrides[filename] = callback;
+    }
+
     // Perform an update by retrieving the latest version and downloading it.
     // Returns the directory to which the update has been extracted.
     std::filesystem::path update()
@@ -184,6 +193,9 @@ public:
     {
         check_url(url, version);
         m_downloader->base_url(url.base_url());
+        for (auto const& [filename, func] : m_file_url_overrides) {
+            m_downloader->override_file_url(filename, func(version));
+        }
         auto latest_release = m_downloader->get(url.filename());
         return extract_archive(version, latest_release.path());
     }
@@ -356,6 +368,9 @@ private:
     std::vector<internal::types::content_operation_func>
         m_post_update_operations{};
     std::optional<bool> m_filename_contains_version{};
+    std::unordered_map<std::string,
+        std::function<std::string(version_number const& version)>>
+        m_file_url_overrides;
 };
 
 } // namespace ungive::update

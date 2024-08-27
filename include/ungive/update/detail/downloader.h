@@ -39,25 +39,10 @@ public:
 
     void base_url(std::string const& base_url)
     {
-        m_host = "";
-        m_base_path = "";
-        m_base_url = "";
-#ifdef LIBUPDATE_ALLOW_INSECURE_HTTP
-        if (base_url.rfind("http", 0) != 0) {
-            throw std::invalid_argument("the base url must be an HTTP url");
-        }
-#else
-        if (base_url.rfind("https", 0) != 0) {
-            throw std::invalid_argument("the base url must be an HTTPS url");
-        }
-#endif
         m_base_url = base_url;
-        auto p = internal::split_host_path(base_url);
+        auto p = this->split_url(base_url);
         m_host = p.first;
         m_base_path = p.second;
-        while (m_base_path.size() > 0 && m_base_path.back() == '/') {
-            m_base_path.resize(m_base_path.size() - 1);
-        }
     }
 
     // Adds a verification step for each download that is made with get().
@@ -70,6 +55,11 @@ public:
         for (auto const& file : verifier.files()) {
             m_additional_files.insert(file);
         }
+    }
+
+    void override_file_url(std::string const& filename, std::string const& url)
+    {
+        m_file_url_overrides[filename] = url;
     }
 
     // Downloads the given path from the server to disk.
@@ -93,7 +83,12 @@ public:
         // the download operation will fail sooner and we won't
         // have unnecessarily downloaded a possibly large file.
         for (auto const& additional_path : m_additional_files) {
-            get_file(cli, additional_path);
+            auto it = m_file_url_overrides.find(additional_path);
+            if (it != m_file_url_overrides.end()) {
+                get_external_file(additional_path, it->second);
+            } else {
+                get_file(cli, additional_path);
+            }
         }
         auto result = get_file(cli, path);
         for (auto const& verify : m_verification_funcs) {
@@ -115,19 +110,36 @@ public:
 protected:
     // Downloads a file once and returns the local path to it.
     // If the file is already downloaded it returns the path to it instead.
-    downloaded_file const& get_file(httplib::Client& cli, std::string path)
+    downloaded_file const& get_file(httplib::Client& cli,
+        std::string const& filename, std::string const& path)
     {
-        auto it = m_downloaded_files.find(path);
+        auto it = m_downloaded_files.find(filename);
         if (it != m_downloaded_files.end()) {
             return it->second;
         }
-        auto full_path = cwd() / internal::random_string(8);
-        if (path.size() > 0) {
-            full_path = full_path / internal::strip_leading_slash(path);
+        auto local_path = cwd() / internal::random_string(8);
+        if (filename.size() > 0) {
+            local_path = local_path / internal::strip_leading_slash(filename);
         }
-        download_to_file(cli, path, full_path);
-        m_downloaded_files.emplace(path, downloaded_file(full_path.string()));
-        return m_downloaded_files.at(path);
+        download_to_file(cli, path, local_path);
+        m_downloaded_files.emplace(
+            filename, downloaded_file(local_path.string()));
+        return m_downloaded_files.at(filename);
+    }
+
+    downloaded_file const& get_file(
+        httplib::Client& cli, std::string const& filename)
+    {
+        return get_file(cli, filename,
+            m_base_path + internal::ensure_nonempty_prefix(filename, '/'));
+    }
+
+    downloaded_file const& get_external_file(
+        std::string const& filename, std::string const& external_url)
+    {
+        auto [external_host, external_path] = this->split_url(external_url);
+        httplib::Client cli(external_host);
+        return get_file(cli, filename, external_path);
     }
 
     // Downloads a path and saves it in the given output file.
@@ -138,11 +150,8 @@ protected:
             std::filesystem::create_directories(output_file.parent_path());
         }
         std::ofstream out(output_file, std::ios::out | std::ios::binary);
-        if (path.size() > 0 && path.at(0) != '/') {
-            path = '/' + path;
-        }
         auto res = cli.Get(
-            m_base_path + path, httplib::Headers(),
+            internal::ensure_nonempty_prefix(path, '/'), httplib::Headers(),
             [&](const httplib::Response& response) {
                 if (m_cancel_all.load()) {
                     return false;
@@ -158,8 +167,8 @@ protected:
             });
         if (!res) {
             auto err = res.error();
-            throw std::runtime_error("failed to download " + m_host +
-                m_base_path + path + ": " + httplib::to_string(err));
+            throw std::runtime_error("failed to download " + m_host + path +
+                ": " + httplib::to_string(err));
         }
     }
 
@@ -171,6 +180,27 @@ protected:
         return m_temp_dir;
     }
 
+    std::pair<std::string, std::string> split_url(std::string const& url)
+    {
+#ifdef LIBUPDATE_ALLOW_INSECURE_HTTP
+        if (url.rfind("http", 0) != 0) {
+            throw std::invalid_argument("the base url must be an HTTP url");
+        }
+#else
+        if (url.rfind("https", 0) != 0) {
+            throw std::invalid_argument("the base url must be an HTTPS url");
+        }
+#endif
+        auto p = internal::split_host_path(url);
+        auto host = p.first;
+        auto path = p.second;
+        // Checking greater 1, since we don't want to remove the leading slash.
+        while (path.size() > 1 && path.back() == '/') {
+            path.resize(path.size() - 1);
+        }
+        return std::make_pair(host, path);
+    }
+
     std::string m_host;
     std::string m_base_path;
     std::string m_base_url;
@@ -180,6 +210,7 @@ protected:
     std::vector<internal::types::verifier_func> m_verification_funcs{};
     std::unordered_map<std::string, downloaded_file> m_downloaded_files{};
     std::atomic<bool> m_cancel_all{ false };
+    std::unordered_map<std::string, std::string> m_file_url_overrides;
 };
 
 } // namespace ungive::update
