@@ -329,7 +329,16 @@ private:
             // After the content has been verified, move it.
             // That way only verified content can live in the working directory
             // and the extracted directory is created there in one operation.
-            std::filesystem::rename(temp_dir, output_directory);
+            try {
+                std::filesystem::rename(temp_dir, output_directory);
+            }
+            catch (...) {
+                // If moving the directory does not work, copy it recursively.
+                // This can happen if the source and target directory
+                // are located on different volumes.
+                std::filesystem::copy(temp_dir, output_directory,
+                    std::filesystem::copy_options::recursive);
+            }
             for (auto const& operation : m_post_update_operations) {
                 try {
                     operation(output_directory);
