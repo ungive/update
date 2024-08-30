@@ -22,6 +22,9 @@ target_link_libraries(libupdate INTERFACE OpenSSL::SSL OpenSSL::Crypto)
 
 # minizip on windows for extracting release files
 if(WIN32)
+    find_package(ZLIB REQUIRED)
+    target_link_libraries(libupdate INTERFACE ZLIB::ZLIB)
+    set(MZ_ZLIB ON CACHE BOOL "" FORCE)
     set(MZ_DECOMPRESS_ONLY ON CACHE BOOL "" FORCE)
     set(MZ_COMPAT OFF CACHE BOOL "" FORCE)
     set(MZ_BZIP2 OFF CACHE BOOL "" FORCE)
