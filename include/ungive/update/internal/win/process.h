@@ -21,7 +21,7 @@
 
 #pragma comment(lib, "psapi.lib")
 
-#define CLOSE_WAIT_TIMEOUT_MILLIS 2500
+#define CLOSE_WAIT_TIMEOUT_MILLIS 30000
 
 namespace ungive::update::internal::win
 {
