@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "ungive/update/detail/common.h"
+#include "ungive/update/detail/launcher.h"
 #include "ungive/update/internal/sentinel.h"
 
 #ifdef WIN32
@@ -115,6 +116,26 @@ public:
             }
         }
         m_retain_paths = paths;
+    }
+
+    // Sets the launcher to be used with this manager. Ownership is transferred.
+    // If the launcher was initialized with a relative launcher path,
+    // the direcetory in which the executable of the current process is located
+    // is used as the parent path for the launcher executable and DLLs,
+    // i.e. the launcher and DLLs are expected to be located
+    // in the same directory as the executable of the current process.
+    // If that is not the intention, pass a launcher that was initialized
+    // with an absolute executable path or an explicit working directory.
+    void set_launcher(std::unique_ptr<ungive::update::launcher> launcher)
+    {
+        m_launcher = std::move(launcher);
+        auto process_executable = internal::win::current_process_executable();
+        if (!m_launcher->working_directory().has_value()) {
+            // Set the working directory to the directory
+            // of the executable of the current process.
+            m_launcher->working_directory(process_executable.parent_path());
+        }
+        assert(m_launcher->working_directory().has_value());
     }
 
     // Returns the latest installed version in the manager's working directory,
@@ -261,9 +282,12 @@ public:
     // The lock is released such that the launched process
     // can acquire it and manage updates.
     //
-    bool launch_latest(std::filesystem::path const& launcher_executable,
-        std::vector<std::string> const& launcher_arguments = {})
+    bool launch_latest(std::vector<std::string> const& launcher_arguments = {})
     {
+        if (m_launcher == nullptr) {
+            std::runtime_error("cannot launch latest without a launcher");
+        }
+
         acquire_lock();
 
         auto process = internal::win::current_process_executable();
@@ -287,10 +311,8 @@ public:
                 latest.version() > m_current_version);
         // If there is a newer version, start the launcher and exit.
         if (have_newer_version) {
-            auto executable = launcher_executable;
-            if (executable.is_relative()) {
-                executable = process.parent_path() / executable;
-            }
+            assert(m_launcher->working_directory().has_value() &&
+                "the launcher does not have a working directory");
             // Copy the launcher executable to a temporary directory,
             // since it might be sitting in a directory that will be
             // deleted or renamed by this launcher and it wouldn't be able
@@ -303,8 +325,7 @@ public:
                 m_working_directory / ".tmp" / internal::random_string(8);
             std::filesystem::remove_all(temp_directory);
             std::filesystem::create_directories(temp_directory);
-            auto copied_executable = temp_directory / executable.filename();
-            std::filesystem::copy(executable, copied_executable);
+            auto copied_executable = m_launcher->copy_to(temp_directory);
             // Release the lock and launch the executable.
             release_lock();
             internal::win::start_process_detached(
@@ -509,6 +530,7 @@ private:
     version_number m_current_version;
     std::string m_latest_directory;
 
+    std::unique_ptr<ungive::update::launcher> m_launcher{ nullptr };
     std::unique_ptr<internal::win::lock_file> m_update_lock{ nullptr };
     std::vector<std::filesystem::path> m_retain_paths{};
 };

@@ -540,6 +540,31 @@ public:
 
     std::filesystem::path const& executable() const { return m_executable; }
 
+    std::unique_ptr<ungive::update::launcher> launcher() const
+    {
+        // Open a Developer Command Prompt for VS 2022 (or newer),
+        // cd into the directory of the test executable and execute this:
+        // > dumpbin /dependents libupdate_test.exe
+        // Put the output into this vector.
+        std::vector<std::filesystem::path> dlls = {
+            "libssl-3-x64.dll.txt",
+            "libcrypto-3-x64.dll.txt",
+            "KERNEL32.dll.txt",
+            "USER32.dll.txt",
+            "SHELL32.dll.txt",
+            "ole32.dll.txt",
+            "MSVCP140D.dll.txt",
+            "WS2_32.dll.txt",
+            "CRYPT32.dll.txt",
+            "VCRUNTIME140D.dll.txt",
+            "VCRUNTIME140_1D.dll.txt",
+            "ucrtbased.dll.txt",
+            "zlib1.dll.txt",
+            "OLEAUT32.dll.txt",
+        };
+        return std::make_unique<ungive::update::launcher>(m_executable, dlls);
+    }
+
     std::vector<std::string> print_args(std::string const& text) const
     {
         return { "--print", m_output_file.string(), text };
@@ -565,25 +590,25 @@ public:
 
     void run_print(std::string const& text) const
     {
-        internal::win::start_process_detached(executable(), print_args(text));
+        internal::win::start_process_detached(m_executable, print_args(text));
     }
 
     void run_apply_latest() const
     {
         internal::win::start_process_detached(
-            executable(), apply_latest_args());
+            m_executable, apply_latest_args());
     }
 
     void run_apply_and_start_latest() const
     {
         internal::win::start_process_detached(
-            executable(), apply_and_start_latest_args());
+            m_executable, apply_and_start_latest_args());
     }
 
     void run_sleep(std::chrono::milliseconds duration) const
     {
         internal::win::start_process_detached(
-            executable(), sleep_args(duration));
+            m_executable, sleep_args(duration));
     }
 
     std::string wait_for_output(std::chrono::milliseconds timeout = 10s) const
@@ -720,8 +745,9 @@ TEST(manager, LauncherIsStartedAndAppliesLatestAfterLaunchLatestIsCalled)
     test_launcher launcher(PREVIOUS_VERSION);
     auto manager = updater.manager();
     bool result = false;
-    EXPECT_NO_THROW(result = manager->launch_latest(
-                        launcher.executable(), launcher.apply_latest_args()));
+    manager->set_launcher(std::move(launcher.launcher()));
+    EXPECT_NO_THROW(
+        result = manager->launch_latest(launcher.apply_latest_args()));
     EXPECT_TRUE(result);
     auto output = launcher.wait_for_output();
     EXPECT_EQ("ok", output);
@@ -743,10 +769,9 @@ TEST(manager, LauncherIsStartedWhenLauncherPathIsRelativeToTestExecutable)
     test_launcher launcher(PREVIOUS_VERSION);
     auto manager = updater.manager();
     bool result = false;
-    EXPECT_NO_THROW(result = manager->launch_latest(
-                        std::filesystem::relative(launcher.executable(),
-                            process_executable.parent_path()),
-                        launcher.apply_latest_args()));
+    manager->set_launcher(std::move(launcher.launcher()));
+    EXPECT_NO_THROW(
+        result = manager->launch_latest(launcher.apply_latest_args()));
     EXPECT_TRUE(result);
     auto output = launcher.wait_for_output();
     EXPECT_EQ("ok", output);
@@ -791,7 +816,8 @@ TEST(manager, LatestIsStartedWhenLauncherAppliesAndStartsLatestUpdate)
     // which should now be in the latest directory.
     auto manager = updater.manager();
     bool result = false;
-    EXPECT_NO_THROW(result = manager->launch_latest(launcher.executable(),
+    manager->set_launcher(std::move(launcher.launcher()));
+    EXPECT_NO_THROW(result = manager->launch_latest(
                         launcher.apply_and_start_latest_args()));
     EXPECT_TRUE(result);
     auto output = launcher.wait_for_output();
@@ -806,8 +832,8 @@ TEST(manager, LaunchLatestReturnsFalseWhenThereIsNothingToLaunch)
     auto manager = updater.manager();
     bool result = false;
     test_launcher launcher(PREVIOUS_VERSION);
-    EXPECT_NO_THROW(result = manager->launch_latest(
-                        launcher.executable(), launcher.print_args("ok")));
+    manager->set_launcher(std::move(launcher.launcher()));
+    EXPECT_NO_THROW(result = manager->launch_latest(launcher.print_args("ok")));
     EXPECT_FALSE(result);
 }
 
@@ -825,8 +851,9 @@ void manager_launch_latest_return_value_test(::updater& updater,
     auto manager = updater.manager();
     bool result = false;
     test_launcher launcher(PREVIOUS_VERSION);
-    EXPECT_NO_THROW(result = manager->launch_latest(launcher.executable(),
-                        launcher.print_args("launched")));
+    manager->set_launcher(std::move(launcher.launcher()));
+    EXPECT_NO_THROW(
+        result = manager->launch_latest(launcher.print_args("launched")));
     EXPECT_EQ(return_value, result);
     if (result) {
         auto output = launcher.wait_for_output();
@@ -1196,3 +1223,5 @@ TEST(updater, FailsWithAlternateUrlWhenOverridenUrlDoesNotExist)
     });
     updater_update_test(updater, "release-1.2.3.txt", true);
 }
+
+// TODO: write tests that verify that launcher DLL dependencies are copied.
