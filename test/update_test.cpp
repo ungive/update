@@ -544,7 +544,7 @@ public:
     {
         // Open a Developer Command Prompt for VS 2022 (or newer),
         // cd into the directory of the test executable and execute this:
-        // > dumpbin /dependents libupdate_test.exe
+        // > dumpbin /dependents ungive_update_test.exe
         // Put the output into this vector.
         std::vector<std::filesystem::path> dlls = {
             "libssl-3-x64.dll.txt",
