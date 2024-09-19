@@ -95,4 +95,54 @@ inline std::string sha256_file(std::string const& path)
     return oss.str();
 }
 
+// Parses SHA256 checksums from a sha256sum file.
+// Ideally this file should have been generated
+// with the "sha256sum" linux command.
+inline std::vector<std::pair<std::string, std::string>> parse_sha256sums(
+    std::string const& data)
+{
+    std::vector<std::pair<std::string, std::string>> result;
+    std::ostringstream oss_hash;
+    std::ostringstream oss_path;
+    size_t state = 0;
+    for (size_t i = 0; i < data.size(); i++) {
+        char c = data.at(i);
+        if ((c == '\r' || c == '\n') && state != 2) {
+            state = 0;
+            continue;
+        }
+        switch (state) {
+        case 0:
+            if (c == ' ') {
+                state = 1;
+                continue;
+            }
+            oss_hash << c;
+            continue;
+        case 1:
+            if (c == '*') {
+                state = 2;
+            }
+            continue;
+        case 2:
+            if (c == '\r' || c == '\n') {
+                state = 0;
+            } else {
+                if (c == '/') {
+                    oss_path << static_cast<char>(
+                        std::filesystem::path::preferred_separator);
+                } else {
+                    oss_path << c;
+                }
+                continue;
+            }
+        }
+        result.push_back(std::make_pair(oss_hash.str(), oss_path.str()));
+        oss_hash = std::ostringstream();
+        oss_path = std::ostringstream();
+        state = 0;
+    }
+    return result;
+}
+
 } // namespace ungive::update::internal::crypto

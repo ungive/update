@@ -82,7 +82,7 @@ public:
         if (it == payload.additional_files.end()) {
             throw std::runtime_error("sha256sums file not available");
         }
-        auto sums = parse_sha256sums(it->second.read());
+        auto sums = internal::crypto::parse_sha256sums(it->second.read());
         auto found = payload.additional_files.end();
         std::string hash;
         for (auto const& pair : sums) {
@@ -115,53 +115,6 @@ private:
         std::string const& hash, downloaded_file const& file) const
     {
         return hash == internal::crypto::sha256_file(file.path());
-    }
-
-    std::vector<std::pair<std::string, std::string>> parse_sha256sums(
-        std::string const& data) const
-    {
-        std::vector<std::pair<std::string, std::string>> result;
-        std::ostringstream oss_hash;
-        std::ostringstream oss_path;
-        size_t state = 0;
-        for (size_t i = 0; i < data.size(); i++) {
-            char c = data.at(i);
-            if ((c == '\r' || c == '\n') && state != 2) {
-                state = 0;
-                continue;
-            }
-            switch (state) {
-            case 0:
-                if (c == ' ') {
-                    state = 1;
-                    continue;
-                }
-                oss_hash << c;
-                continue;
-            case 1:
-                if (c == '*') {
-                    state = 2;
-                }
-                continue;
-            case 2:
-                if (c == '\r' || c == '\n') {
-                    state = 0;
-                } else {
-                    if (c == '/') {
-                        oss_path << static_cast<char>(
-                            std::filesystem::path::preferred_separator);
-                    } else {
-                        oss_path << c;
-                    }
-                    continue;
-                }
-            }
-            result.push_back(std::make_pair(oss_hash.str(), oss_path.str()));
-            oss_hash = std::ostringstream();
-            oss_path = std::ostringstream();
-            state = 0;
-        }
-        return result;
     }
 
     std::string m_sums_filename;
