@@ -84,7 +84,7 @@ public:
         }
         auto sums = internal::crypto::parse_sha256sums(it->second.read());
         auto found = payload.additional_files.end();
-        std::string hash;
+        std::string expected_hash;
         for (auto const& pair : sums) {
             auto verify_path = std::filesystem::path(pair.second);
             if (!verify_path.has_filename()) {
@@ -97,16 +97,19 @@ public:
             if (std::filesystem::absolute(verify_path) ==
                 std::filesystem::absolute(payload.file)) {
                 found = payload.additional_files.find(payload.file);
-                hash = pair.first;
+                expected_hash = pair.first;
                 break;
             }
         }
         if (found == payload.additional_files.end()) {
             throw std::runtime_error(
-                "file to verify not present in shasums file");
+                "file to verify not present in shasums file: " + payload.file);
         }
-        if (!verify_hash(hash, found->second)) {
-            throw verification_failed("sha256 hashes do not match");
+        auto actual_hash = internal::crypto::sha256_file(found->second.path());
+        if (actual_hash != expected_hash) {
+            throw verification_failed("sha256 hashes for file " + payload.file +
+                " do not match: expected " + expected_hash + ", got " +
+                actual_hash);
         }
     }
 
