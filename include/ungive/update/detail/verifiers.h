@@ -109,13 +109,13 @@ public:
         }
         auto actual_hash = internal::crypto::sha256_file(found->second.path());
         if (actual_hash != expected_hash) {
-            throw verification_failed("SHA256 hashes for file " + payload.file +
-                " do not match: expected " + expected_hash + ", got " +
+            throw verification_failed("SHA256 hashes do not match for file " +
+                payload.file + ": expected " + expected_hash + ", got " +
                 actual_hash);
         }
         logger()(log_level::info,
-            "file integrity OK, SHA256 hashes match: expected " +
-                expected_hash + ", got " + actual_hash);
+            "file integrity OK, SHA256 hashes match for file " + payload.file +
+                ": expected " + expected_hash + ", got " + actual_hash);
     }
 
 private:
