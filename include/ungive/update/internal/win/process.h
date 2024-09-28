@@ -222,7 +222,7 @@ static std::vector<DWORD> get_running_pids(
 // Waits until all processes have exited.
 // Returns the number of processes that have been killed
 // or throws an exception if an error occured.
-inline size_t kill_processes(std::filesystem::path path_or_directory)
+inline size_t kill_processes(std::filesystem::path const& path_or_directory)
 {
     if (!std::filesystem::exists(path_or_directory)) {
         return 0;

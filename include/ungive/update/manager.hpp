@@ -112,7 +112,7 @@ public:
     // May also contain directory names next to file names,
     // in which case the entire directory is retained.
     //
-    void retain_installed_files(std::vector<std::filesystem::path> paths)
+    void retain_installed_files(std::vector<std::filesystem::path> const& paths)
     {
         for (auto const& path : paths) {
             if (!path.is_relative()) {

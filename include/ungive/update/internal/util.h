@@ -45,7 +45,7 @@ inline std::filesystem::path create_temporary_directory(
 }
 
 // Creates a file with a specific name.
-inline void touch_file(std::filesystem::path path)
+inline void touch_file(std::filesystem::path const& path)
 {
     if (path.has_parent_path())
         std::filesystem::create_directories(path.parent_path());
@@ -54,7 +54,8 @@ inline void touch_file(std::filesystem::path path)
 }
 
 // Writes a string to a file.
-inline void write_file(std::filesystem::path path, std::string const& content,
+inline void write_file(std::filesystem::path const& path,
+    std::string const& content,
     std::ios::openmode mode = std::ios::out | std::ios::binary)
 {
     if (path.has_parent_path())
@@ -67,7 +68,7 @@ inline void write_file(std::filesystem::path path, std::string const& content,
 
 // Reads the contents of a file into a string.
 inline std::string read_file(
-    std::filesystem::path path, std::ios::openmode mode = std::ios::in)
+    std::filesystem::path const& path, std::ios::openmode mode = std::ios::in)
 {
     if (!std::filesystem::exists(path)) {
         throw std::runtime_error(
