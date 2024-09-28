@@ -22,65 +22,43 @@ inline std::optional<std::filesystem::path> csidl_path(int csidl_value)
     return std::nullopt;
 }
 
-inline std::optional<std::filesystem::path> local_appdata_path(
-    std::string const& application_id = "")
+inline std::optional<std::filesystem::path> local_appdata_path()
 {
-    auto path = csidl_path(CSIDL_LOCAL_APPDATA);
-    if (!path.has_value()) {
-        return std::nullopt;
-    }
-    if (application_id.empty()) {
-        return path.value();
-    }
-    return path.value() / application_id;
+    return csidl_path(CSIDL_LOCAL_APPDATA);
 }
 
-inline std::optional<std::filesystem::path> appdata_path(
-    std::string const& application_id = "")
+inline std::optional<std::filesystem::path> appdata_path()
 {
-    auto path = csidl_path(CSIDL_APPDATA);
-    if (!path.has_value()) {
-        return std::nullopt;
-    }
-    if (application_id.empty()) {
-        return path.value();
-    }
-    return path.value() / application_id;
+    return csidl_path(CSIDL_APPDATA);
 }
 
-inline std::optional<std::filesystem::path> programs_path(
-    std::string const& application_id = "")
+inline std::optional<std::filesystem::path> programs_path()
 {
-    auto path = csidl_path(CSIDL_PROGRAMS);
-    if (!path.has_value()) {
-        return std::nullopt;
-    }
-    if (application_id.empty()) {
-        return path.value();
-    }
-    return path.value() / application_id;
+    return csidl_path(CSIDL_PROGRAMS);
 }
 
 inline bool has_start_menu_entry(std::filesystem::path const& target_path,
-    std::string const& link_name, std::string const& application_id = "")
+    std::string const& link_name, std::filesystem::path const& application_id)
 {
-    auto directory = programs_path(application_id);
-    if (!directory.has_value()) {
+    auto path = programs_path();
+    if (!path.has_value()) {
         return false;
     }
-    auto link_path = directory.value() / (link_name + ".lnk");
+    auto directory = path.value() / application_id;
+    auto link_path = directory / (link_name + ".lnk");
     return std::filesystem::exists(link_path);
 }
 
 inline bool create_start_menu_entry(std::filesystem::path const& target_path,
-    std::string const& link_name, std::string const& application_id = "")
+    std::string const& link_name, std::filesystem::path const& application_id)
 {
-    auto directory = programs_path(application_id);
-    if (!directory.has_value()) {
+    auto path = programs_path();
+    if (!path.has_value()) {
         return false;
     }
-    std::filesystem::create_directories(directory.value());
-    auto link_path = directory.value() / (link_name + ".lnk");
+    auto directory = path.value() / application_id;
+    std::filesystem::create_directories(directory);
+    auto link_path = directory / (link_name + ".lnk");
     if (std::filesystem::exists(link_path)) {
         std::filesystem::remove(link_path);
     }

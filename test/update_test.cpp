@@ -17,8 +17,10 @@ using namespace std::chrono_literals;
 // Test releases: https://github.com/ungive/update_test/releases
 
 #ifdef WIN32
+// Use a name with characters that are represented different in Windows UTF-16.
+std::wstring test_folder_name = L"ungive_update_t\u00E9st_dir";
 const std::filesystem::path UPDATE_WORKING_DIR =
-    internal::win::local_appdata_path("ungive_update_test_dir").value();
+    internal::win::local_appdata_path().value() / test_folder_name;
 #endif
 
 static const char* MOCK_URL_GITHUB_API_SIMPLE =
@@ -418,46 +420,41 @@ TEST(updater, LatestAvailableUpdateReturnsNothingWhenSentinelMismatches)
 
 TEST(updater, StartMenuShortcutExistsAfterAddingRespectiveOperation)
 {
-    auto directory = internal::win::programs_path("ungive_update_test");
-    ASSERT_TRUE(directory.has_value());
+    auto directory = internal::win::programs_path().value() / test_folder_name;
     ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     updater.add_post_update_operation(operations::create_start_menu_shortcut(
-        "release-1.2.3.txt", "Release 1.2.3", "ungive_update_test"));
+        "release-1.2.3.txt", "Release 1.2.3", test_folder_name));
     updater_update_test(updater, "release-1.2.3.txt", false);
-    EXPECT_TRUE(
-        std::filesystem::exists(directory.value() / "Release 1.2.3.lnk"));
-    std::filesystem::remove_all(directory.value());
+    EXPECT_TRUE(std::filesystem::exists(directory / "Release 1.2.3.lnk"));
+    std::filesystem::remove_all(directory);
 }
 
 TEST(updater, StartMenuShortcutDoesNotExistWhenOnlyUpdatingIt)
 {
-    auto directory = internal::win::programs_path("ungive_update_test");
-    ASSERT_TRUE(directory.has_value());
+    auto directory = internal::win::programs_path().value() / test_folder_name;
     ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     updater.add_post_update_operation(operations::update_start_menu_shortcut(
-        "release-1.2.3.txt", "Release 1.2.3", "ungive_update_test"));
+        "release-1.2.3.txt", "Release 1.2.3", test_folder_name));
     updater_update_test(updater, "release-1.2.3.txt", false);
-    EXPECT_FALSE(std::filesystem::exists(directory.value()));
-    EXPECT_FALSE(
-        std::filesystem::exists(directory.value() / "Release 1.2.3.lnk"));
-    std::filesystem::remove_all(directory.value());
+    EXPECT_FALSE(std::filesystem::exists(directory));
+    EXPECT_FALSE(std::filesystem::exists(directory / "Release 1.2.3.lnk"));
+    std::filesystem::remove_all(directory);
 }
 
 TEST(updater, StartMenuShortcutChangedWhenItExistedAndItIsUpdated)
 {
-    auto directory = internal::win::programs_path("ungive_update_test");
-    ASSERT_TRUE(directory.has_value());
-    auto link_path = directory.value() / "Release 1.2.3.lnk";
+    auto directory = internal::win::programs_path().value() / test_folder_name;
+    auto link_path = directory / "Release 1.2.3.lnk";
     // Pretend that it already exists, but as an empty file.
     internal::touch_file(link_path);
     ASSERT_EQ(0, std::filesystem::file_size(link_path));
     ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     updater.add_post_update_operation(operations::update_start_menu_shortcut(
-        "release-1.2.3.txt", "Release 1.2.3", "ungive_update_test"));
+        "release-1.2.3.txt", "Release 1.2.3", test_folder_name));
     updater_update_test(updater, "release-1.2.3.txt", false);
     EXPECT_TRUE(std::filesystem::exists(link_path));
     EXPECT_GT(std::filesystem::file_size(link_path), 0);
-    std::filesystem::remove_all(directory.value());
+    std::filesystem::remove_all(directory);
 }
 
 void updater_prune_preparation(::updater& updater)
@@ -581,31 +578,32 @@ public:
         return std::make_unique<ungive::update::launcher>(m_executable, dlls);
     }
 
-    std::vector<std::string> print_args(std::string const& text) const
+    std::vector<std::wstring> print_args(std::wstring const& text) const
     {
-        return { "--print", m_output_file.u8string(), text };
+        return { L"--print", m_output_file, text };
     }
 
-    std::vector<std::string> sleep_args(
+    std::vector<std::wstring> sleep_args(
         std::chrono::milliseconds duration) const
     {
-        return { "--sleep", m_output_file.u8string(),
-            std::to_string(duration.count()) };
+        return { L"--sleep", m_output_file, std::to_wstring(duration.count()) };
     }
 
-    std::vector<std::string> apply_latest_args() const
+    std::vector<std::wstring> apply_latest_args() const
     {
-        return { "--apply-latest", m_output_file.u8string(),
-            m_version.string() };
+        auto version_str = m_version.string();
+        return { L"--apply-latest", m_output_file,
+            std::wstring(version_str.begin(), version_str.end()) };
     }
 
-    std::vector<std::string> apply_and_start_latest_args() const
+    std::vector<std::wstring> apply_and_start_latest_args() const
     {
-        return { "--apply-and-start-latest", m_output_file.u8string(),
-            m_version.string() };
+        auto version_str = m_version.string();
+        return { L"--apply-and-start-latest", m_output_file,
+            std::wstring(version_str.begin(), version_str.end()) };
     }
 
-    void run_print(std::string const& text) const
+    void run_print(std::wstring const& text) const
     {
         internal::win::start_process_detached(m_executable, print_args(text));
     }
@@ -692,7 +690,7 @@ int main(int argc, char* argv[])
             manager.apply_latest();
             test_launcher nested_launcher(current_version);
             manager.start_latest(nested_launcher.executable().filename(),
-                nested_launcher.print_args("success"));
+                nested_launcher.print_args(L"success"));
             auto output = nested_launcher.wait_for_output();
             internal::write_file(output_file, "start_latest: " + output);
             return 0;
@@ -850,7 +848,8 @@ TEST(manager, LaunchLatestReturnsFalseWhenThereIsNothingToLaunch)
     bool result = false;
     test_launcher launcher(PREVIOUS_VERSION);
     manager->set_launcher(std::move(launcher.launcher()));
-    EXPECT_NO_THROW(result = manager->launch_latest(launcher.print_args("ok")));
+    EXPECT_NO_THROW(
+        result = manager->launch_latest(launcher.print_args(L"ok")));
     EXPECT_FALSE(result);
 }
 
@@ -869,8 +868,9 @@ void manager_launch_latest_return_value_test(::updater& updater,
     bool result = false;
     test_launcher launcher(PREVIOUS_VERSION);
     manager->set_launcher(std::move(launcher.launcher()));
+    auto x = launcher.print_args(L"launched");
     EXPECT_NO_THROW(
-        result = manager->launch_latest(launcher.print_args("launched")));
+        result = manager->launch_latest(launcher.print_args(L"launched")));
     EXPECT_EQ(return_value, result);
     if (result) {
         auto output = launcher.wait_for_output();

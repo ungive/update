@@ -61,7 +61,7 @@ inline void throw_last_error()
 // Starts a process detached.
 // May throw an exception if an error occured
 inline void start_process_detached(std::filesystem::path const& executable,
-    std::vector<std::string> const& arguments = {})
+    std::vector<std::wstring> const& arguments = {})
 {
     STARTUPINFOW StartupInfo;
     PROCESS_INFORMATION ProcessInfo;

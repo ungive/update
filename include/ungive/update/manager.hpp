@@ -157,7 +157,7 @@ public:
             if (!entry.is_directory() || !entry.path().has_filename()) {
                 continue;
             }
-            auto filename = entry.path().filename().u8string();
+            auto filename = entry.path().filename().string();
             version_number directory_version;
             try {
                 directory_version = version_number::from_string(filename);
@@ -286,7 +286,7 @@ public:
     // The lock is released such that the launched process
     // can acquire it and manage updates.
     //
-    bool launch_latest(std::vector<std::string> const& launcher_arguments = {})
+    bool launch_latest(std::vector<std::wstring> const& launcher_arguments = {})
     {
         if (m_launcher == nullptr) {
             std::runtime_error("cannot launch latest without a launcher");
@@ -403,7 +403,7 @@ public:
     // can acquire it and manage updates.
     //
     void start_latest(std::filesystem::path const& main_executable,
-        std::vector<std::string> const& main_arguments = {})
+        std::vector<std::wstring> const& main_arguments = {})
     {
         release_lock();
 
@@ -465,7 +465,7 @@ private:
             if (!entry.path().has_filename()) {
                 continue;
             }
-            auto filename = entry.path().filename().u8string();
+            auto filename = entry.path().filename();
             if (excluded.find(filename) != excluded.end()) {
                 continue;
             }

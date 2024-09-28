@@ -40,7 +40,7 @@ public:
     // if it exists, and otherwise not be created.
     create_start_menu_shortcut(std::filesystem::path const& target_executable,
         std::string const& link_name,
-        std::optional<std::string> const& category_name = std::nullopt,
+        std::optional<std::wstring> const& category_name = std::nullopt,
         bool only_update = false)
         : m_target_executable{ target_executable }, m_link_name{ link_name },
           m_category_name{ category_name }, m_only_update{ only_update }
@@ -60,18 +60,18 @@ public:
             target_executable = extracted_directory / target_executable;
         }
         if (m_only_update &&
-            !internal::win::has_start_menu_entry(
-                target_executable, m_link_name, m_category_name.value_or(""))) {
+            !internal::win::has_start_menu_entry(target_executable, m_link_name,
+                m_category_name.value_or(L""))) {
             // Start menu entry should only be updated but does not exist.
             return;
         }
         if (!std::filesystem::exists(target_executable)) {
             throw std::runtime_error(
                 "the start menu shortcut target executable does not exist: " +
-                target_executable.u8string());
+                target_executable.string());
         }
         auto result = internal::win::create_start_menu_entry(
-            target_executable, m_link_name, m_category_name.value_or(""));
+            target_executable, m_link_name, m_category_name.value_or(L""));
         if (!result) {
             throw std::runtime_error("failed to create start menu shortcut");
         }
@@ -80,7 +80,7 @@ public:
 private:
     std::filesystem::path m_target_executable;
     std::string m_link_name;
-    std::optional<std::string> m_category_name;
+    std::optional<std::wstring> m_category_name;
     bool m_only_update;
 };
 
@@ -91,7 +91,7 @@ public:
     // but only updates the shortcut if it already exists.
     update_start_menu_shortcut(std::filesystem::path const& target_executable,
         std::string const& link_name,
-        std::optional<std::string> const& category_name = std::nullopt)
+        std::optional<std::wstring> const& category_name = std::nullopt)
         : create_start_menu_shortcut(
               target_executable, link_name, category_name, true)
     {

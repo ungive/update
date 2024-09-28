@@ -26,7 +26,13 @@ inline std::filesystem::path create_temporary_directory(
     while (true) {
         std::stringstream ss;
         ss << std::hex << rand(prng);
-        path = tmp_dir / ss.str();
+        std::filesystem::path name = ss.str();
+#ifdef LIBUPDATE_TEST_BUILD
+        // Test the implementation with characters
+        // that are represented differently on Windows with UTF-16.
+        name += std::filesystem::path{ L"_\u00E9" };
+#endif
+        path = tmp_dir / name;
         if (std::filesystem::create_directory(path)) {
             break;
         }
@@ -65,7 +71,7 @@ inline std::string read_file(
 {
     if (!std::filesystem::exists(path)) {
         throw std::runtime_error(
-            "file to read does not exist: " + path.u8string());
+            "file to read does not exist: " + path.string());
     }
     std::ifstream ifd(path, std::ios::binary | std::ios::ate);
     std::streampos size = ifd.tellg();
