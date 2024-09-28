@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 
+#include "ungive/update/detail/log.h"
 #include "ungive/update/internal/types.h"
 #include "ungive/update/internal/win/startmenu.h"
 #include "ungive/update/internal/zip.h"
@@ -110,7 +111,8 @@ public:
         try {
             m_content_operation(extracted_directory);
         }
-        catch (...) {
+        catch (std::exception const& e) {
+            logger()(log_level::warning, e.what());
             return;
         }
     }

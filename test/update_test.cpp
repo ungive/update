@@ -391,6 +391,22 @@ TEST(updater, UpdateSucceedsWhenZipHasNoSubfolderButIsFlattenedSilently)
     updater_update_test(updater, "release-1.2.3.txt", false);
 }
 
+TEST(updater, OperationFailureIsLoggedWhenOperationFailureIsIgnored)
+{
+    log_level level = log_level::verbose;
+    std::string message = "";
+    logger() = [&](auto a, auto b) {
+        level = a;
+        message = b;
+    };
+    ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
+    updater.add_post_update_operation(
+        operations::ignore_failure(operations::flatten_extracted_directory()));
+    updater_update_test(updater, "release-1.2.3.txt", false);
+    EXPECT_NE(log_level::verbose, level);
+    EXPECT_TRUE(message.size() > 0);
+}
+
 TEST(updater, LatestAvailableUpdateReturnsNothingWhenSentinelMismatches)
 {
     ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
