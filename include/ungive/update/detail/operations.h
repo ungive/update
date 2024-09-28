@@ -40,7 +40,7 @@ public:
     create_start_menu_shortcut(std::filesystem::path const& target_executable,
         std::string const& link_name,
         std::optional<std::string> const& category_name = std::nullopt,
-        bool fail_on_missing_target = true, bool only_update = false)
+        bool only_update = false)
         : m_target_executable{ target_executable }, m_link_name{ link_name },
           m_category_name{ category_name }, m_only_update{ only_update }
     {
