@@ -24,6 +24,8 @@ using logger_func =
 // Get or set the update logger instance.
 // The logger is used for message that cannot be communicated with exceptions,
 // e.g. because exceptions are caught and ignored.
+// Must be set before any update operations are performed in other threads
+// any may not be updated while update operations could be in progress.
 inline logger_func& logger()
 {
     // No-op by default.
