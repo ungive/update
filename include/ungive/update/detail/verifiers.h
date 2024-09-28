@@ -55,8 +55,10 @@ public:
             }
         }
         if (!has_valid) {
-            throw verification_failed("invalid signature");
+            throw verification_failed("invalid " + m_key_type + " signature");
         }
+        logger()(log_level::info,
+            "file authenticity OK, " + m_key_type + " signatures match");
     }
 
 private:
@@ -107,10 +109,13 @@ public:
         }
         auto actual_hash = internal::crypto::sha256_file(found->second.path());
         if (actual_hash != expected_hash) {
-            throw verification_failed("sha256 hashes for file " + payload.file +
+            throw verification_failed("SHA256 hashes for file " + payload.file +
                 " do not match: expected " + expected_hash + ", got " +
                 actual_hash);
         }
+        logger()(log_level::info,
+            "file integrity OK, SHA256 hashes match: expected " +
+                expected_hash + ", got " + actual_hash);
     }
 
 private:
