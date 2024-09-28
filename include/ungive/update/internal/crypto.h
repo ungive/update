@@ -72,7 +72,8 @@ inline std::string sha256_file(std::filesystem::path const& path)
     if (1 != EVP_DigestInit_ex(mdctx.get(), md, NULL))
         throw std::runtime_error("openssl: failed to init digest");
     if (!std::filesystem::exists(path)) {
-        throw std::runtime_error("file to hash does not exist");
+        throw std::runtime_error(
+            "file to hash does not exist: " + path.u8string());
     }
     std::ifstream ifs(path, std::ifstream::binary);
     std::vector<char> buffer(1024 * 1024, 0);

@@ -21,7 +21,8 @@ public:
     void operator()(std::filesystem::path const& extracted_directory) override
     {
         if (!internal::flatten_root_directory(extracted_directory.string())) {
-            throw std::runtime_error("failed to flatten root directory");
+            throw std::runtime_error(
+                "failed to flatten extracted root directory");
         }
     }
 };
@@ -65,7 +66,9 @@ public:
             return;
         }
         if (!std::filesystem::exists(target_executable)) {
-            throw std::runtime_error("the target executable does not exist");
+            throw std::runtime_error(
+                "the start menu shortcut target executable does not exist: " +
+                target_executable.u8string());
         }
         auto result = internal::win::create_start_menu_entry(
             target_executable, m_link_name, m_category_name.value_or(""));
@@ -112,7 +115,9 @@ public:
             m_content_operation(extracted_directory);
         }
         catch (std::exception const& e) {
-            logger()(log_level::warning, e.what());
+            logger()(log_level::warning,
+                std::string("content operation skipped with error: ") +
+                    e.what());
             return;
         }
     }
