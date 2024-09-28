@@ -365,7 +365,7 @@ TEST(updater, UpdateIsInstalledWhenZipHasSubfolderAndIsFlattened)
 {
     ::updater updater = create_updater(PATTERN_ZIP_SUB, PREVIOUS_VERSION);
     updater.add_post_update_operation(
-        operations::flatten_extracted_directory(true));
+        operations::flatten_extracted_directory());
     updater_update_test(updater, "release-1.2.3.txt");
 }
 
@@ -379,7 +379,7 @@ TEST(updater, UpdateFailsWhenZipHasNoSubfolderButIsFlattened)
 {
     ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     updater.add_post_update_operation(
-        operations::flatten_extracted_directory(true));
+        operations::flatten_extracted_directory());
     updater_update_test(updater, "release-1.2.3.txt", true);
 }
 
@@ -387,7 +387,7 @@ TEST(updater, UpdateSucceedsWhenZipHasNoSubfolderButIsFlattenedSilently)
 {
     ::updater updater = create_updater(PATTERN_ZIP, PREVIOUS_VERSION);
     updater.add_post_update_operation(
-        operations::flatten_extracted_directory(false));
+        operations::ignore_failure(operations::flatten_extracted_directory()));
     updater_update_test(updater, "release-1.2.3.txt", false);
 }
 

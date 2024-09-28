@@ -10,28 +10,19 @@
 
 namespace ungive::update::operations
 {
+
 class flatten_extracted_directory : public types::content_operation
 {
 public:
-    // Flattens the extracted directory if the ZIP file contains
-    // a single directory. Optionally fails if flattening could not occur
-    // because the root of the ZIP file contained other files or no directory.
-    flatten_extracted_directory(bool fail_if_not_flattened = false)
-        : m_fail_if_not_flattened{ fail_if_not_flattened }
-    {
-    }
+    // Flattens the extracted directory if the ZIP file contains one directory.
+    flatten_extracted_directory() {}
 
     void operator()(std::filesystem::path const& extracted_directory) override
     {
-        auto result =
-            internal::flatten_root_directory(extracted_directory.string());
-        if (m_fail_if_not_flattened && !result) {
+        if (!internal::flatten_root_directory(extracted_directory.string())) {
             throw std::runtime_error("failed to flatten root directory");
         }
     }
-
-private:
-    bool m_fail_if_not_flattened;
 };
 
 class create_start_menu_shortcut : public types::content_operation
@@ -48,7 +39,7 @@ public:
     create_start_menu_shortcut(std::filesystem::path const& target_executable,
         std::string const& link_name,
         std::optional<std::string> const& category_name = std::nullopt,
-        bool only_update = false)
+        bool fail_on_missing_target = true, bool only_update = false)
         : m_target_executable{ target_executable }, m_link_name{ link_name },
           m_category_name{ category_name }, m_only_update{ only_update }
     {
@@ -101,6 +92,31 @@ public:
               target_executable, link_name, category_name, true)
     {
     }
+};
+
+class ignore_failure : public types::content_operation
+{
+public:
+    // Wrapper for a content operation to ignore any errors that might occur.
+    template <typename O,
+        typename std::enable_if<std::is_base_of<types::content_operation,
+            O>::value>::type* = nullptr>
+    ignore_failure(O const& operation) : m_content_operation{ operation }
+    {
+    }
+
+    void operator()(std::filesystem::path const& extracted_directory) override
+    {
+        try {
+            m_content_operation(extracted_directory);
+        }
+        catch (...) {
+            return;
+        }
+    }
+
+private:
+    internal::types::content_operation_func m_content_operation;
 };
 
 } // namespace ungive::update::operations
