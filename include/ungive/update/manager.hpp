@@ -67,7 +67,7 @@ public:
         std::string const& latest_directory_name)
         : m_working_directory{ working_directory },
           m_current_version{ current_version },
-          m_latest_directory{ latest_directory_name }
+          m_latest_directory_name{ latest_directory_name }
     {
         acquire_lock();
         write_sentinel_for_current_process();
@@ -92,7 +92,10 @@ public:
     version_number const& current_version() const { return m_current_version; }
 
     // Returns the name of the latest directory.
-    std::string const& latest_directory() const { return m_latest_directory; }
+    std::string const& latest_directory() const
+    {
+        return m_latest_directory_name;
+    }
 
     // Sets a list of files that should be retained when an update is applied.
     // This could e.g. be an uninstaller executable which was extracted
@@ -154,7 +157,7 @@ public:
             if (!entry.is_directory() || !entry.path().has_filename()) {
                 continue;
             }
-            auto filename = entry.path().filename().string();
+            auto filename = entry.path().filename().u8string();
             version_number directory_version;
             try {
                 directory_version = version_number::from_string(filename);
@@ -224,7 +227,7 @@ public:
 
         std::unordered_set<std::filesystem::path> exclude_directories;
         exclude_directories.insert(UPDATE_LOCK_FILENAME);
-        exclude_directories.insert(m_latest_directory);
+        exclude_directories.insert(m_latest_directory_name);
         exclude_directories.insert(m_current_version.string());
         auto latest_installed = latest_available_update();
         if (latest_installed.has_value()) {
@@ -462,7 +465,7 @@ private:
             if (!entry.path().has_filename()) {
                 continue;
             }
-            auto filename = entry.path().filename().string();
+            auto filename = entry.path().filename().u8string();
             if (excluded.find(filename) != excluded.end()) {
                 continue;
             }
@@ -477,7 +480,7 @@ private:
 
     inline std::filesystem::path latest_path() const
     {
-        return m_working_directory / m_latest_directory;
+        return m_working_directory / m_latest_directory_name;
     }
 
     void write_sentinel_for_current_process() const
@@ -529,7 +532,7 @@ private:
 
     std::filesystem::path m_working_directory;
     version_number m_current_version;
-    std::string m_latest_directory;
+    std::string m_latest_directory_name;
 
     std::unique_ptr<ungive::update::launcher> m_launcher{ nullptr };
     std::unique_ptr<internal::win::lock_file> m_update_lock{ nullptr };

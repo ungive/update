@@ -65,7 +65,7 @@ inline std::string read_file(
 {
     if (!std::filesystem::exists(path)) {
         throw std::runtime_error(
-            "file to read does not exist: " + path.string());
+            "file to read does not exist: " + path.u8string());
     }
     std::ifstream ifd(path, std::ios::binary | std::ios::ate);
     std::streampos size = ifd.tellg();

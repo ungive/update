@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 #include <mz.h>
@@ -14,8 +15,8 @@ namespace ungive::update::internal
 {
 
 // Extracts a ZIP file to a given target directory.
-inline void zip_extract(
-    std::string const& zip_path, std::string const& target_directory)
+inline void zip_extract(std::filesystem::path const& zip_path,
+    std::filesystem::path const& target_directory)
 {
     void* reader = NULL;
     int32_t err = MZ_OK;
@@ -23,12 +24,14 @@ inline void zip_extract(
     if (!reader) {
         throw std::runtime_error("failed to create zip reader");
     }
-    err = mz_zip_reader_open_file(reader, zip_path.c_str());
+    auto zip_path_utf8 = zip_path.u8string();
+    err = mz_zip_reader_open_file(reader, zip_path_utf8.c_str());
     if (err != MZ_OK) {
         throw std::runtime_error(
             "failed to open zip file: " + std::to_string(err));
     } else {
-        err = mz_zip_reader_save_all(reader, target_directory.c_str());
+        auto target_directory_utf8 = target_directory.u8string();
+        err = mz_zip_reader_save_all(reader, target_directory_utf8.c_str());
         if (err != MZ_OK) {
             throw std::runtime_error(
                 "failed to save zip entries to disk: " + std::to_string(err));
@@ -46,7 +49,7 @@ inline void zip_extract(
 // by copying all files from that subdirectory into the directory
 // and deleting the then empty subdirectory.
 // Useful for flattening a ZIP archive that contains a single folder.
-inline bool flatten_root_directory(std::string const& directory)
+inline bool flatten_root_directory(std::filesystem::path const& directory)
 {
     namespace fs = std::filesystem;
     std::optional<fs::path> subdir;

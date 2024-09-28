@@ -122,8 +122,7 @@ protected:
             local_path = local_path / internal::strip_leading_slash(filename);
         }
         download_to_file(cli, path, local_path);
-        m_downloaded_files.emplace(
-            filename, downloaded_file(local_path.string()));
+        m_downloaded_files.emplace(filename, downloaded_file(local_path));
         return m_downloaded_files.at(filename);
     }
 

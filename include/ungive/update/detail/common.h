@@ -17,12 +17,12 @@ namespace ungive::update
 class downloaded_file
 {
 public:
-    downloaded_file(std::string path) : m_path{ path } {}
-
-    downloaded_file(std::filesystem::path path) : m_path{ path.string() } {}
+    downloaded_file(std::filesystem::path const& path) : m_path{ path.string() }
+    {
+    }
 
     // The path of the file.
-    std::string const& path() const { return m_path; }
+    std::filesystem::path const& path() const { return m_path; }
 
     // Reads the entire file into a string.
     std::string read(std::ios::openmode mode = std::ios::in) const
@@ -31,7 +31,7 @@ public:
     }
 
 private:
-    std::string m_path;
+    std::filesystem::path m_path;
 };
 
 // Represents a generic version number.

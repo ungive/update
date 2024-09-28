@@ -293,8 +293,8 @@ private:
         }
     }
 
-    std::filesystem::path extract_archive(
-        version_number const& version, std::string const& archive_path) const
+    std::filesystem::path extract_archive(version_number const& version,
+        std::filesystem::path const& archive_path) const
     {
         auto output_directory =
             m_manager->working_directory() / version.string();
@@ -317,7 +317,7 @@ private:
         switch (m_archive_type) {
 #ifdef WIN32
         case archive_type::zip_archive:
-            internal::zip_extract(archive_path, temp_dir.string());
+            internal::zip_extract(archive_path, temp_dir);
             for (auto const& operation : m_content_operations) {
                 try {
                     operation(temp_dir);

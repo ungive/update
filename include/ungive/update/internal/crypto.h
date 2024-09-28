@@ -64,7 +64,7 @@ inline bool verify_signature(
 }
 
 // Computes a SHA-256 hash of a file.
-inline std::string sha256_file(std::string const& path)
+inline std::string sha256_file(std::filesystem::path const& path)
 {
     unsigned char hash[SHA256_DIGEST_LENGTH] = {};
     auto mdctx = create_digest_context();

@@ -19,8 +19,6 @@ struct temp_dir
 
     fs::path path() const { return m_path; }
 
-    std::string string() const { return m_path.string(); }
-
 private:
     fs::path m_path;
 };
@@ -38,7 +36,7 @@ TEST(zip, FileExistsWhenExtractingZip)
 {
     temp_dir dir;
     auto zip = TEST_FILES / "release-1.2.3.zip";
-    EXPECT_NO_THROW(internal::zip_extract(zip.string(), dir.string()));
+    EXPECT_NO_THROW(internal::zip_extract(zip, dir.path()));
     EXPECT_EQ(ZIP_CONTENT, read(dir.path() / ZIP_FILENAME));
 }
 
@@ -46,7 +44,7 @@ TEST(zip, FileExistsWhenExtractingZipWithSubfolder)
 {
     temp_dir dir;
     auto zip = TEST_FILES / "release-1.2.3-subfolder.zip";
-    EXPECT_NO_THROW(internal::zip_extract(zip.string(), dir.string()));
+    EXPECT_NO_THROW(internal::zip_extract(zip, dir.path()));
     EXPECT_EQ(ZIP_CONTENT, read(dir.path() / ZIP_SUBFOLDER / ZIP_FILENAME));
 }
 
@@ -54,8 +52,8 @@ TEST(zip, FileIsMovedWhenExtractingZipAndFlatteningRootDirectory)
 {
     temp_dir dir;
     auto zip = TEST_FILES / "release-1.2.3-subfolder.zip";
-    EXPECT_NO_THROW(internal::zip_extract(zip.string(), dir.string()));
-    EXPECT_NO_THROW(internal::flatten_root_directory(dir.string()));
+    EXPECT_NO_THROW(internal::zip_extract(zip, dir.path()));
+    EXPECT_NO_THROW(internal::flatten_root_directory(dir.path()));
     EXPECT_EQ(ZIP_CONTENT, read(dir.path() / ZIP_FILENAME));
 }
 

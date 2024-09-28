@@ -54,7 +54,7 @@ struct downloader_inject : public http_downloader
         out.write(content.data(), content.size());
         out.flush();
         out.close();
-        m_downloaded_files.emplace(path, downloaded_file(full_path.string()));
+        m_downloaded_files.emplace(path, downloaded_file(full_path));
     }
 };
 
@@ -583,24 +583,25 @@ public:
 
     std::vector<std::string> print_args(std::string const& text) const
     {
-        return { "--print", m_output_file.string(), text };
+        return { "--print", m_output_file.u8string(), text };
     }
 
     std::vector<std::string> sleep_args(
         std::chrono::milliseconds duration) const
     {
-        return { "--sleep", m_output_file.string(),
+        return { "--sleep", m_output_file.u8string(),
             std::to_string(duration.count()) };
     }
 
     std::vector<std::string> apply_latest_args() const
     {
-        return { "--apply-latest", m_output_file.string(), m_version.string() };
+        return { "--apply-latest", m_output_file.u8string(),
+            m_version.string() };
     }
 
     std::vector<std::string> apply_and_start_latest_args() const
     {
-        return { "--apply-and-start-latest", m_output_file.string(),
+        return { "--apply-and-start-latest", m_output_file.u8string(),
             m_version.string() };
     }
 
