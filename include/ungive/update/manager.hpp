@@ -9,6 +9,7 @@
 
 #include "ungive/update/detail/common.h"
 #include "ungive/update/detail/launcher.h"
+#include "ungive/update/detail/log.h"
 #include "ungive/update/internal/sentinel.h"
 
 #ifdef WIN32

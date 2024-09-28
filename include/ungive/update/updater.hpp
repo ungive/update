@@ -15,6 +15,7 @@
 #include "ungive/update/detail/common.h"
 #include "ungive/update/detail/downloader.h"
 #include "ungive/update/detail/github.h"
+#include "ungive/update/detail/log.h"
 #include "ungive/update/detail/operations.h"
 #include "ungive/update/detail/types.h"
 #include "ungive/update/detail/verifiers.h"
