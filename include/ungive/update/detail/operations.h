@@ -66,14 +66,14 @@ public:
         if (target_executable.is_relative()) {
             target_executable = extracted_directory / target_executable;
         }
-        if (!std::filesystem::exists(target_executable)) {
-            throw std::runtime_error("the target executable does not exist");
-        }
         if (m_only_update &&
             !internal::win::has_start_menu_entry(
                 target_executable, m_link_name, m_category_name.value_or(""))) {
             // Start menu entry should only be updated but does not exist.
             return;
+        }
+        if (!std::filesystem::exists(target_executable)) {
+            throw std::runtime_error("the target executable does not exist");
         }
         auto result = internal::win::create_start_menu_entry(
             target_executable, m_link_name, m_category_name.value_or(""));
