@@ -16,8 +16,8 @@ using digest_context = std::shared_ptr<EVP_MD_CTX>;
 inline public_key parse_public_key(std::string const& input,
     std::string const& input_type, std::string const& key_type)
 {
-    OSSL_DECODER_CTX* dctx;
-    EVP_PKEY* pkey;
+    OSSL_DECODER_CTX* dctx = NULL;
+    EVP_PKEY* pkey = NULL;
     dctx = OSSL_DECODER_CTX_new_for_pkey(&pkey, input_type.c_str(), NULL,
         key_type.c_str(), OSSL_KEYMGMT_SELECT_PUBLIC_KEY, NULL, NULL);
     if (dctx == nullptr) {
@@ -30,6 +30,9 @@ inline public_key parse_public_key(std::string const& input,
     if (result != 1) {
         throw std::runtime_error("openssl: failed to decode public key");
     }
+    if (pkey == nullptr) {
+        throw std::runtime_error("openssl: public key result is null");
+    }
     return std::shared_ptr<EVP_PKEY>(pkey, [](EVP_PKEY* key) {
         EVP_PKEY_free(key);
     });
@@ -37,7 +40,7 @@ inline public_key parse_public_key(std::string const& input,
 
 inline digest_context create_digest_context()
 {
-    EVP_MD_CTX* mdctx;
+    EVP_MD_CTX* mdctx = NULL;
     if ((mdctx = EVP_MD_CTX_create()) == nullptr)
         throw std::runtime_error("openssl: failed to create context");
     return std::shared_ptr<EVP_MD_CTX>(mdctx, [](EVP_MD_CTX* ctx) {
