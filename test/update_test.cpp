@@ -407,6 +407,8 @@ TEST(updater, OperationFailureIsLoggedWhenOperationFailureIsIgnored)
     updater_update_test(updater, "release-1.2.3.txt", false);
     EXPECT_NE(log_level::verbose, level);
     EXPECT_TRUE(message.size() > 0);
+    // reset, otherwise it will be called from other tests
+    logger() = [](auto a, auto b) {};
 }
 
 TEST(updater, LatestAvailableUpdateReturnsNothingWhenSentinelMismatches)
