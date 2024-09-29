@@ -39,17 +39,29 @@ public:
     // Optionally, the start menu shortcut can only be updated,
     // if it exists, and otherwise not be created.
     create_start_menu_shortcut(std::filesystem::path const& target_executable,
-        std::string const& link_name,
-        std::optional<std::wstring> const& category_name = std::nullopt,
+        std::filesystem::path const& link_name,
+        std::optional<std::filesystem::path> const& category_name =
+            std::nullopt,
         bool only_update = false)
         : m_target_executable{ target_executable }, m_link_name{ link_name },
           m_category_name{ category_name }, m_only_update{ only_update }
     {
         if (link_name.empty()) {
-            throw std::runtime_error("the link name cannot be empty");
+            throw std::invalid_argument("the link name cannot be empty");
         }
-        if (category_name.has_value() && category_name->empty()) {
-            throw std::runtime_error("the category name cannot be empty");
+        if (link_name.has_parent_path()) {
+            throw std::invalid_argument(
+                "the start menu entry link name cannot have a parent path");
+        }
+        if (category_name.has_value()) {
+            if (category_name->empty()) {
+                throw std::invalid_argument(
+                    "the category name cannot be empty");
+            }
+            if (category_name->has_parent_path()) {
+                throw std::invalid_argument(
+                    "the start menu entry category cannot have a parent path");
+            }
         }
     }
 
@@ -79,8 +91,8 @@ public:
 
 private:
     std::filesystem::path m_target_executable;
-    std::string m_link_name;
-    std::optional<std::wstring> m_category_name;
+    std::filesystem::path m_link_name;
+    std::optional<std::filesystem::path> m_category_name;
     bool m_only_update;
 };
 
@@ -90,8 +102,9 @@ public:
     // Works the same as create_start_menu_shortcut,
     // but only updates the shortcut if it already exists.
     update_start_menu_shortcut(std::filesystem::path const& target_executable,
-        std::string const& link_name,
-        std::optional<std::wstring> const& category_name = std::nullopt)
+        std::filesystem::path const& link_name,
+        std::optional<std::filesystem::path> const& category_name =
+            std::nullopt)
         : create_start_menu_shortcut(
               target_executable, link_name, category_name, true)
     {

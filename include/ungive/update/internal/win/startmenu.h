@@ -37,28 +37,53 @@ inline std::optional<std::filesystem::path> programs_path()
     return csidl_path(CSIDL_PROGRAMS);
 }
 
+// Creates a Windows start menu entry, may throw an exception.
 inline bool has_start_menu_entry(std::filesystem::path const& target_path,
-    std::string const& link_name, std::filesystem::path const& application_id)
+    std::filesystem::path const& link_name,
+    std::filesystem::path const& category_name)
 {
+    if (link_name.has_parent_path()) {
+        throw std::invalid_argument(
+            "the start menu entry link name cannot have a parent path");
+    }
+    if (category_name.has_parent_path()) {
+        throw std::invalid_argument(
+            "the start menu entry category cannot have a parent path");
+    }
     auto path = programs_path();
     if (!path.has_value()) {
         return false;
     }
-    auto directory = path.value() / application_id;
-    auto link_path = directory / (link_name + ".lnk");
+    auto directory = path.value() / category_name;
+    std::filesystem::path filename = link_name;
+    filename += std::filesystem::path{ L".lnk" };
+    auto link_path = directory / filename;
     return std::filesystem::exists(link_path);
 }
 
+// Creates a Windows start menu entry, may throw an exception.
 inline bool create_start_menu_entry(std::filesystem::path const& target_path,
-    std::string const& link_name, std::filesystem::path const& application_id)
+    std::filesystem::path const& link_name,
+    std::filesystem::path const& category_name)
 {
+    if (link_name.has_parent_path()) {
+        throw std::invalid_argument(
+            "the start menu entry link name cannot have a parent path");
+    }
+    if (category_name.has_parent_path()) {
+        throw std::invalid_argument(
+            "the start menu entry category cannot have a parent path");
+    }
     auto path = programs_path();
     if (!path.has_value()) {
-        return false;
+        throw std::runtime_error(
+            "failed to retrieve the start menu shortcuts location");
     }
-    auto directory = path.value() / application_id;
+    auto directory = path.value() / category_name;
     std::filesystem::create_directories(directory);
-    auto link_path = directory / (link_name + ".lnk");
+    std::filesystem::path filename = link_name;
+    filename += std::filesystem::path{ L".lnk" };
+    auto link_path = directory / filename;
     if (std::filesystem::exists(link_path)) {
         std::filesystem::remove(link_path);
     }
