@@ -289,7 +289,7 @@ public:
     bool launch_latest(std::vector<std::wstring> const& launcher_arguments = {})
     {
         if (m_launcher == nullptr) {
-            std::runtime_error("cannot launch latest without a launcher");
+            throw std::runtime_error("cannot launch latest without a launcher");
         }
 
         acquire_lock();
