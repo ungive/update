@@ -114,7 +114,7 @@ public:
     }
 
     // Set the filename pattern to specify which file to download.
-    inline void download_filename_pattern(std::string const& pattern)
+    inline void download_filename_pattern(std::regex const& pattern)
     {
         m_download_filename_pattern = pattern;
     }
@@ -216,13 +216,13 @@ public:
     {
         if (!m_latest_retriever_func)
             throw std::runtime_error("missing latest retriever");
-        if (m_download_filename_pattern.empty())
+        if (!m_download_filename_pattern.has_value())
             throw std::runtime_error("missing download filename pattern");
         if (!m_download_url_pattern.has_value())
             throw std::runtime_error("missing download url pattern");
 
         // Validate the URL.
-        std::regex filename_pattern(m_download_filename_pattern);
+        auto const& filename_pattern = m_download_filename_pattern.value();
         auto [version, url] = m_latest_retriever_func(filename_pattern);
         check_url(url, version);
 
@@ -265,15 +265,15 @@ private:
             throw std::runtime_error(
                 "missing whether the filename should contain the version");
         }
-        if (!m_download_filename_pattern.empty()) {
-            std::regex filename_pattern(m_download_filename_pattern);
+        if (m_download_filename_pattern.has_value()) {
+            auto const& filename_pattern = m_download_filename_pattern.value();
             if (!std::regex_match(url.filename(), filename_pattern)) {
                 throw std::runtime_error(
                     "the download filename pattern does not match");
             }
         }
         if (m_download_url_pattern.has_value()) {
-            auto url_pattern = m_download_url_pattern.value();
+            auto const& url_pattern = m_download_url_pattern.value();
             if (!std::regex_match(url.url(), url_pattern)) {
                 throw std::runtime_error(
                     "the download url pattern does not match");
@@ -371,7 +371,7 @@ private:
     std::shared_ptr<http_downloader> m_downloader;
 
     update::archive_type m_archive_type{ archive_type::unknown };
-    std::string m_download_filename_pattern{};
+    std::optional<std::regex> m_download_filename_pattern{};
     std::optional<std::regex> m_download_url_pattern{};
     internal::types::latest_retriever_func m_latest_retriever_func{};
     std::vector<internal::types::content_operation_func> m_content_operations{};

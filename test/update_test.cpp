@@ -251,6 +251,7 @@ static auto PREVIOUS_VERSION = version_number(1, 2, 2);
 static auto UPDATED_VERSION = version_number(1, 2, 3);
 static auto PATTERN_ZIP = "^release-\\d+.\\d+.\\d+.zip$";
 static auto PATTERN_ZIP_SUB = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
+static auto PATTERN_ZIP_SUB_I = "^RELEASE-\\d+.\\d+.\\d+-SUBFOlder.zip$";
 
 ::manager create_manager(
     version_number const& current_version = PREVIOUS_VERSION)
@@ -259,7 +260,7 @@ static auto PATTERN_ZIP_SUB = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
 }
 
 ::updater internal_create_updater(
-    std::string const& release_filename_pattern = PATTERN_ZIP,
+    std::regex const& release_filename_pattern = std::regex(PATTERN_ZIP),
     version_number const& current_version = PREVIOUS_VERSION)
 {
     auto manager =
@@ -275,19 +276,27 @@ static auto PATTERN_ZIP_SUB = "^release-\\d+.\\d+.\\d+-subfolder.zip$";
     return updater;
 }
 
-::updater create_updater(
-    std::string const& release_filename_pattern = PATTERN_ZIP,
+::updater create_updater(std::regex const& release_filename_pattern,
     version_number const& current_version = PREVIOUS_VERSION)
 {
     std::filesystem::remove_all(UPDATE_WORKING_DIR);
     return internal_create_updater(release_filename_pattern, current_version);
 }
 
+::updater create_updater(
+    std::string const& release_filename_pattern = PATTERN_ZIP,
+    version_number const& current_version = PREVIOUS_VERSION)
+{
+    return create_updater(
+        std::regex(release_filename_pattern), current_version);
+}
+
 ::updater recreate_updater(
     std::string const& release_filename_pattern = PATTERN_ZIP,
     version_number const& current_version = PREVIOUS_VERSION)
 {
-    return internal_create_updater(release_filename_pattern, current_version);
+    return internal_create_updater(
+        std::regex(release_filename_pattern), current_version);
 }
 
 TEST(updater, StatusIsUpToDateWhenVersionIsIdentical)
@@ -360,6 +369,13 @@ updater_update_test(::updater& updater,
 TEST(updater, UpdateIsInstalledWhenZipHasSubfolder)
 {
     ::updater updater = create_updater(PATTERN_ZIP_SUB, PREVIOUS_VERSION);
+    updater_update_test(updater, "release-1.2.3/release-1.2.3.txt");
+}
+
+TEST(updater, UpdateIsInstalledWhenCaseInsensitivePatternMatches)
+{
+    std::regex pattern(PATTERN_ZIP_SUB_I, std::regex_constants::icase);
+    ::updater updater = create_updater(pattern, PREVIOUS_VERSION);
     updater_update_test(updater, "release-1.2.3/release-1.2.3.txt");
 }
 
