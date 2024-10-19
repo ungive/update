@@ -265,7 +265,7 @@ private:
             throw std::runtime_error(
                 "missing whether the filename should contain the version");
         }
-        if (m_download_url_pattern.has_value()) {
+        if (!m_download_filename_pattern.empty()) {
             std::regex filename_pattern(m_download_filename_pattern);
             if (!std::regex_match(url.filename(), filename_pattern)) {
                 throw std::runtime_error(
