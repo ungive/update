@@ -169,12 +169,16 @@ public:
 
     // Perform an update by retrieving the latest version and downloading it.
     // Returns the directory to which the update has been extracted.
-    std::filesystem::path update()
+    inline std::filesystem::path update() { return update(get_latest()); }
+
+    // Perform an update using the return value from get_latest() directly.
+    // Returns the directory to which the update has been extracted.
+    // This method is not thread-safe.
+    std::filesystem::path update(update_info const& info)
     {
-        auto latest = get_latest();
-        switch (latest.state()) {
+        switch (info.state()) {
         case state::new_version_available:
-            return update(latest.version(), latest.url());
+            return update(info.version(), info.url());
         case state::up_to_date:
             throw std::runtime_error("the application is already up to date");
         case state::latest_is_older:
@@ -184,29 +188,6 @@ public:
             assert(false);
             throw std::runtime_error("unknown state");
         }
-    }
-
-    // Perform an update by downloading and extracting from the given URL.
-    // Returns the directory to which the update has been extracted.
-    // This method is not thread-safe.
-    std::filesystem::path update(
-        version_number const& version, file_url const& url)
-    {
-        check_url(url, version);
-        m_downloader->base_url(url.base_url());
-        for (auto const& [filename, func] : m_file_url_overrides) {
-            m_downloader->override_file_url(filename, func(version));
-        }
-        auto latest_release = m_downloader->get(url.filename());
-        return extract_archive(version, latest_release.path());
-    }
-
-    // Perform an update using the return value from get_latest() directly.
-    // Returns the directory to which the update has been extracted.
-    // This method is not thread-safe.
-    std::filesystem::path update(update_info const& info)
-    {
-        return update(info.version(), info.url());
     }
 
     // Returns update information for the latest available version
@@ -254,6 +235,20 @@ public:
     bool cancel() const { return m_downloader->cancel(); }
 
 private:
+    std::filesystem::path update(
+        version_number const& version, file_url const& url)
+    {
+        check_url(url, version);
+        // TODO maybe separate the configuration and execution stage?
+        // don't allow changing parameters once the updater has been created.
+        m_downloader->base_url(url.base_url());
+        for (auto const& [filename, func] : m_file_url_overrides) {
+            m_downloader->override_file_url(filename, func(version));
+        }
+        auto latest_release = m_downloader->get(url.filename());
+        return extract_archive(version, latest_release.path());
+    }
+
     void check_url(file_url const& url, version_number const& version)
     {
         if (m_filename_contains_version.has_value()) {
