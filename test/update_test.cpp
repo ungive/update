@@ -268,7 +268,7 @@ static auto PATTERN_ZIP_SUB_I = "^RELEASE-\\d+.\\d+.\\d+-SUBFOlder.zip$";
     ::updater updater(manager);
     updater.update_source(mock_github_api_latest_retriever());
     updater.download_filename_pattern(release_filename_pattern);
-    updater.archive_type(archive_type::zip_archive);
+    updater.archive_type(archive_type::zip);
     updater.add_update_verification(verifiers::sha256sums("SHA256SUMS.txt"));
     updater.add_update_verification(verifiers::message_digest(
         "SHA256SUMS.txt", "SHA256SUMS.txt.sig", "PEM", "ED25519", PUBLIC_KEY));

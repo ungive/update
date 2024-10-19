@@ -311,7 +311,7 @@ private:
         }));
         switch (m_archive_type) {
 #ifdef WIN32
-        case archive_type::zip_archive:
+        case archive_type::zip:
             internal::zip_extract(archive_path, temp_dir);
             for (auto const& operation : m_content_operations) {
                 try {

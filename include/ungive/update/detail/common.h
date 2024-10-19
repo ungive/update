@@ -203,8 +203,8 @@ enum class state
 enum class archive_type
 {
     unknown,
-    zip_archive,
-    mac_disk_image,
+    zip,
+    dmg,
 };
 
 struct update_info
