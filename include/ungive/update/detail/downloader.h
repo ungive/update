@@ -25,14 +25,7 @@ public:
     ~http_downloader()
     {
         // Delete all downloaded files once destructed.
-        if (!m_temp_dir.empty()) {
-            // Make sure the destructor does not throw.
-            try {
-                std::filesystem::remove_all(m_temp_dir);
-            }
-            catch (...) {
-            }
-        }
+        clear_temp_dir();
     }
 
     std::string const& base_url() const { return m_base_url; }
@@ -106,6 +99,15 @@ public:
     // Reads the current cancellation state.
     // This method is thread-safe.
     bool cancel() const { return m_cancel_all.load(); }
+
+    // Clears the internal download cache.
+    // Should not be called while an update is in progress.
+    // This method is not thread-safe.
+    void clear()
+    {
+        m_downloaded_files = {};
+        clear_temp_dir();
+    }
 
 protected:
     // Downloads a file once and returns the local path to it.
@@ -201,6 +203,20 @@ protected:
             path.resize(path.size() - 1);
         }
         return std::make_pair(host, path);
+    }
+
+    // Clears and resets the temporary directory.
+    // No exception is thrown if this operation fails.
+    void clear_temp_dir()
+    {
+        if (!m_temp_dir.empty()) {
+            try {
+                std::filesystem::remove_all(m_temp_dir);
+            }
+            catch (...) {
+            }
+        }
+        m_temp_dir = "";
     }
 
     std::string m_host;

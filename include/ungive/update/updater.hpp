@@ -169,6 +169,7 @@ public:
 
     // Perform an update by retrieving the latest version and downloading it.
     // Returns the directory to which the update has been extracted.
+    // This method is not thread-safe.
     inline std::filesystem::path update() { return update(get_latest()); }
 
     // Perform an update using the return value from get_latest() directly.
@@ -239,6 +240,8 @@ private:
         version_number const& version, file_url const& url)
     {
         check_url(url, version);
+        // Make sure files from previous updates are not reused.
+        m_downloader->clear();
         // TODO maybe separate the configuration and execution stage?
         // don't allow changing parameters once the updater has been created.
         m_downloader->base_url(url.base_url());
