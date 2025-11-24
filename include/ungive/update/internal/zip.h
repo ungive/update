@@ -16,7 +16,7 @@
 namespace ungive::update::internal
 {
 
-#ifdef WIN32
+#ifdef _WIN32
 // Source: https://stackoverflow.com/a/3999597/6748004
 inline std::string utf8_encode(const std::wstring& wstr)
 {
@@ -42,7 +42,7 @@ inline std::wstring utf8_decode(const std::string& str)
         CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
     return wstrTo;
 }
-#endif // WIN32
+#endif // _WIN32
 
 // Extracts a ZIP file to a given target directory.
 inline void zip_extract(std::filesystem::path const& zip_path,

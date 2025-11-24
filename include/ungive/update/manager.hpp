@@ -12,7 +12,7 @@
 #include "ungive/update/detail/log.h"
 #include "ungive/update/internal/sentinel.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #include "ungive/update/internal/win/lock.h"
 #include "ungive/update/internal/win/process.h"
 

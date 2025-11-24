@@ -23,7 +23,7 @@
 #include "ungive/update/internal/util.h"
 #include "ungive/update/manager.hpp"
 
-#ifdef WIN32
+#ifdef _WIN32
 #include "ungive/update/internal/zip.h"
 #endif
 
@@ -313,7 +313,7 @@ private:
             }
         }));
         switch (m_archive_type) {
-#ifdef WIN32
+#ifdef _WIN32
         case archive_type::zip:
             internal::zip_extract(archive_path, temp_dir);
             for (auto const& operation : m_content_operations) {

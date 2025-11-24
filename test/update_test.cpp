@@ -16,7 +16,7 @@ using namespace std::chrono_literals;
 // Repository: https://github.com/ungive/update_test
 // Test releases: https://github.com/ungive/update_test/releases
 
-#ifdef WIN32
+#ifdef _WIN32
 // Use a name with characters that are represented different in Windows UTF-16.
 std::wstring test_folder_name = L"ungive_update_t\u00E9st_dir";
 const std::filesystem::path UPDATE_WORKING_DIR =
