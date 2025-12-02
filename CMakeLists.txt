@@ -11,8 +11,8 @@ add_library(ungive_update_manager INTERFACE)
 target_include_directories(ungive_update INTERFACE ./include)
 target_include_directories(ungive_update_manager INTERFACE ./include)
 
-target_include_directories(ungive_update
-                           INTERFACE third_party/yhirose+cpp-httplib/include)
+find_package(httplib)
+target_link_libraries(ungive_update INTERFACE httplib::httplib)
 target_compile_definitions(ungive_update INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
 target_compile_definitions(ungive_update INTERFACE UPDATE_WITH_GITHUB)
 target_include_directories(ungive_update
