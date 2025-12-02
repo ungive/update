@@ -155,7 +155,12 @@ protected:
         }
         std::ofstream out(output_file, std::ios::out | std::ios::binary);
         auto res = cli.Get(
-            internal::ensure_nonempty_prefix(path, '/'), httplib::Headers(),
+            internal::ensure_nonempty_prefix(path, '/'),
+            // Add User-Agent to prevent 403 errors with e.g. the GitHub API:
+            // https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api#user-agent-required
+            httplib::Headers{
+                {"User-Agent", "ungive-update/0.0.1"},
+            },
             [&](const httplib::Response& response) {
                 if (m_cancel_all.load()) {
                     return false;
