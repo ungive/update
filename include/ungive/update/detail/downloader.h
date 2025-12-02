@@ -6,7 +6,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include <yhirose/httplib.h>
+#include <httplib.h>
 
 #include "ungive/update/internal/types.h"
 #include "ungive/update/internal/util.h"
