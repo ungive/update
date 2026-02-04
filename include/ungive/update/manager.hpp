@@ -122,6 +122,25 @@ public:
         m_retain_paths = paths;
     }
 
+    // Sets a list of files and directories that should be retained inside the
+    // working directory of the updater. These will not be unlinked or pruned.
+    //
+    // The list of paths must be relative inside the working directory. May also
+    // contain directory names next to file names, in which case the entire
+    // directory is retained.
+    void retain_working_directory_files(
+        std::vector<std::filesystem::path> const& paths)
+    {
+        for (auto const& path : paths) {
+            if (!path.is_relative()) {
+                throw std::invalid_argument("paths must be relative");
+            }
+        }
+        m_retain_working_directory_paths =
+            std::unordered_set<std::filesystem::path>(
+                paths.begin(), paths.end());
+    }
+
     // Sets the launcher to be used with this manager. Ownership is transferred.
     // If the launcher was initialized with a relative launcher path,
     // the direcetory in which the executable of the current process is located
@@ -469,6 +488,10 @@ private:
             if (excluded.find(filename) != excluded.end()) {
                 continue;
             }
+            if (m_retain_working_directory_paths.find(filename) !=
+                m_retain_working_directory_paths.end()) {
+                continue;
+            }
             // Kill any processes that might live in these directories.
             // This might be inefficient in a loop, but in practice
             // there won't be many files in the working directory.
@@ -537,6 +560,8 @@ private:
     std::unique_ptr<ungive::update::launcher> m_launcher{ nullptr };
     std::unique_ptr<internal::win::lock_file> m_update_lock{ nullptr };
     std::vector<std::filesystem::path> m_retain_paths{};
+    std::unordered_set<std::filesystem::path>
+        m_retain_working_directory_paths{};
 };
 
 } // namespace ungive::update
