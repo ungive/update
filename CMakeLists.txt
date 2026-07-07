@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 project(ungive_update)
 
 option(LIBUPDATE_BUILD_TESTS "Build unit tests" OFF)
+option(LIBUPDATE_FIND_HTTPLIB_PACKAGE "Whether to call find_package for httplib" ON)
 
 # Full ungive_update library with updater and manager dependencies.
 add_library(ungive_update INTERFACE)
@@ -11,7 +12,9 @@ add_library(ungive_update_manager INTERFACE)
 target_include_directories(ungive_update INTERFACE ./include)
 target_include_directories(ungive_update_manager INTERFACE ./include)
 
-find_package(httplib)
+if(LIBUPDATE_FIND_HTTPLIB_PACKAGE)
+    find_package(httplib REQUIRED)
+endif()
 target_link_libraries(ungive_update INTERFACE httplib::httplib)
 target_compile_definitions(ungive_update INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
 target_compile_definitions(ungive_update INTERFACE UPDATE_WITH_GITHUB)
